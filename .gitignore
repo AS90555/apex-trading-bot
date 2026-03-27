@@ -30,3 +30,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Arbeitsumgebung (nur lokal fuer Claude Code)
+CLAUDE.md
+ARBEITSWEISE.md
+TODO.md
