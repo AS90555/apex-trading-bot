@@ -1,38 +1,15 @@
-# Secrets & Credentials
-.env*
-config/.env*
-*.key
-*.pem
+# Runtime files
+*.pid
+cloudflared.pid
+webhook.pid
 
-# Python
+# Data directory
+data/
+
+# Python cache
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
+*.pyc
+*.pyo
 
-# Trading Data (zu groß für GitHub)
-data/trades/*.json
-data/positions/*.json
-data/sessions/*.json
-
-# Logs
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Arbeitsumgebung (nur lokal fuer Claude Code)
-CLAUDE.md
-ARBEITSWEISE.md
-TODO.md
-# Auto-Pull Test Fri Mar 27 19:37:06 CET 2026
+# Environment files (already in config/)
+.env

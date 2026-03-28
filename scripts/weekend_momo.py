@@ -348,7 +348,8 @@ def execute_entry():
     print(f"   R:R:         2:1")
     print(f"   Balance:     ${balance:,.2f}")
 
-    # Order platzieren
+    # Order platzieren (Size auf 2 Dezimalstellen runden für AVAX szDecimals=2)
+    size = round(size, 2)
     is_buy = (direction == "long")
     order_result = place_market_order(ASSET, is_buy, size, reduce_only=False)
 
