@@ -1,3 +1,6 @@
+# Claude Code (lokale Session-Daten, nicht ins Repo)
+.claude/
+
 # Runtime files
 *.pid
 cloudflared.pid
@@ -11,5 +14,7 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Environment files (already in config/)
+# Environment files
 .env
+.env.*
+config/.env*

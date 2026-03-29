@@ -11,17 +11,27 @@ import json
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.hyperliquid_client import HyperliquidClient
+from scripts.bitget_client import BitgetClient
 from telegram_sender import send_telegram_message
 
-BOXES_FILE = "/data/.openclaw/workspace/projects/apex-trading/data/opening_range_boxes.json"
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(PROJECT_DIR, "data")
+BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
+
+# Config laden
+sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
+try:
+    from bot_config import DRY_RUN, ASSETS
+except ImportError:
+    DRY_RUN = True
+    ASSETS = ["ETH", "SOL", "AVAX"]
 
 
 def save_opening_range():
     """Hole und speichere Opening Range für alle Assets"""
-    client = HyperliquidClient()
-    
-    assets = ["BTC", "ETH", "SOL", "AVAX"]
+    client = BitgetClient(dry_run=DRY_RUN)
+
+    assets = ASSETS
     boxes = {}
     
     print("=" * 60)

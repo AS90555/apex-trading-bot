@@ -11,8 +11,16 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.hyperliquid_client import HyperliquidClient
+from scripts.bitget_client import BitgetClient
 from telegram_sender import send_telegram_message
+
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
+try:
+    from bot_config import DRY_RUN, ASSETS
+except ImportError:
+    DRY_RUN = True
+    ASSETS = ["ETH", "SOL", "AVAX"]
 
 
 SESSION_NAMES = {
@@ -37,12 +45,13 @@ def run_pre_market(session):
 
     # API Connection Check
     try:
-        client = HyperliquidClient()
+        client = BitgetClient(dry_run=DRY_RUN)
         if not client.is_ready:
-            lines.append("\u274c Wallet: NICHT konfiguriert!")
+            lines.append("\u274c API: NICHT konfiguriert (config/.env.bitget fehlt)!")
             send_telegram_message("\n".join(lines))
             return
-        lines.append(f"\u2705 Wallet: {client.address[:10]}...{client.address[-6:]}")
+        mode = " [DRY RUN]" if DRY_RUN else ""
+        lines.append(f"\u2705 Bitget API verbunden{mode}")
     except Exception as e:
         lines.append(f"\u274c API-Verbindung fehlgeschlagen: {e}")
         send_telegram_message("\n".join(lines))
@@ -51,7 +60,7 @@ def run_pre_market(session):
     # Balance
     try:
         balance = client.get_balance()
-        lines.append(f"\U0001f4b0 Balance: ${balance:,.2f} USDC")
+        lines.append(f"\U0001f4b0 Balance: ${balance:,.2f} USDT")
     except Exception as e:
         lines.append(f"\u26a0\ufe0f Balance-Check fehlgeschlagen: {e}")
 
@@ -74,9 +83,11 @@ def run_pre_market(session):
 
     # Price Check
     try:
-        btc = client.get_price("BTC")
-        eth = client.get_price("ETH")
-        lines.append(f"\nBTC: ${btc:,.2f} | ETH: ${eth:,.2f}")
+        prices = []
+        for asset in ASSETS:
+            p = client.get_price(asset)
+            prices.append(f"{asset}: ${p:,.4f}")
+        lines.append("\n" + " | ".join(prices))
     except Exception as e:
         lines.append(f"\u26a0\ufe0f Preis-Check fehlgeschlagen: {e}")
 

@@ -12,11 +12,18 @@ import subprocess
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.hyperliquid_client import HyperliquidClient
+from scripts.bitget_client import BitgetClient
 
-# Files
-STATE_FILE = "/data/.openclaw/workspace/projects/apex-trading/data/monitor_state.json"
-PNL_TRACKER_FILE = "/data/.openclaw/workspace/projects/apex-trading/data/pnl_tracker.json"
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(PROJECT_DIR, "data")
+STATE_FILE = os.path.join(DATA_DIR, "monitor_state.json")
+PNL_TRACKER_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
+
+sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
+try:
+    from bot_config import DRY_RUN
+except ImportError:
+    DRY_RUN = True
 
 
 def load_state():
@@ -78,109 +85,70 @@ def update_pnl_tracker(pnl):
 
 def main():
     """Main monitoring logic"""
-    client = HyperliquidClient()
-    
+    client = BitgetClient(dry_run=DRY_RUN)
+
     # Get current positions FIRST (fast check)
     positions = client.get_positions()
     current_count = len(positions)
-    
+
     # Load last state
     state = load_state()
     last_count = state.get("last_position_count", 0)
-    
+
     # Quick exit if no positions and wasn't tracking any
     if current_count == 0 and last_count == 0:
         print("\n⏸️  Keine Positionen - Monitor idle")
         return current_count
-    
+
     # Check if position was closed
     if last_count > 0 and current_count == 0:
         print("\n" + "=" * 60)
         print("🎯 POSITION GESCHLOSSEN!")
         print("=" * 60)
-        
-        # Get recent fills from last 24h and find the closing trade
-        from hyperliquid.info import Info
-        from hyperliquid.utils import constants
-        
-        info = Info(constants.MAINNET_API_URL, skip_ws=True)
-        wallet = os.getenv('HYPERLIQUID_WALLET', '0x537f283E5145a53a9A9e53a5570ED225D7E62a8B')
-        fills = info.user_fills(wallet)
-        
-        # Filter to last 24h and find Close trades
-        yesterday = (datetime.now() - timedelta(hours=24)).timestamp() * 1000
-        recent_fills = [f for f in fills if f['time'] > yesterday]
-        
-        # Group by closedPnl to find the complete closed position
-        closed_trades = {}
-        for fill in recent_fills:
-            if fill.get('closedPnl') and fill['closedPnl'] != '0.0':
-                coin = fill['coin']
-                direction = fill['dir']
-                if 'Close' in direction:
-                    key = f"{coin}_{direction}_{fill['time']}"
-                    if key not in closed_trades:
-                        closed_trades[key] = {
-                            'coin': coin,
-                            'direction': direction,
-                            'price': float(fill['px']),
-                            'size': 0,
-                            'pnl': 0,
-                            'time': fill['time']
-                        }
-                    closed_trades[key]['size'] += float(fill['sz'])
-                    closed_trades[key]['pnl'] += float(fill['closedPnl'])
-        
-        if closed_trades:
-            # Get the most recent closed trade
-            latest_trade = sorted(closed_trades.values(), key=lambda x: x['time'], reverse=True)[0]
-            
-            coin = latest_trade['coin']
-            direction = latest_trade['direction']
-            exit_price = latest_trade['price']
-            total_size = latest_trade['size']
-            total_pnl = latest_trade['pnl']
-            
+
+        # Hole Fill-History über Bitget API
+        fills = client.get_recent_fills(limit=10)
+
+        if fills:
+            # Neuesten Fill nehmen
+            latest = fills[0]
+            coin = latest.get("symbol", "").replace("USDT", "")
+            exit_price = float(latest.get("price", 0))
+            total_size = float(latest.get("size", 0))
+            total_pnl = float(latest.get("profit", 0))
+
             print(f"\n💰 FINAL RESULT:")
             print(f"   Asset: {coin}")
-            print(f"   Direction: {direction}")
-            print(f"   Exit: ${exit_price:,.2f}")
-            print(f"   Size: {total_size}")
-            print(f"   P&L: ${total_pnl:,.2f}")
-            
-            # Get current balance
+            print(f"   Exit:  ${exit_price:,.4f}")
+            print(f"   Size:  {total_size}")
+            print(f"   P&L:   ${total_pnl:,.2f}")
+
             balance = client.get_balance()
-            print(f"\nAktuelle Balance: ${balance:,.2f}")
-            
-            # Build notification message
+            print(f"\nAktuelle Balance: ${balance:,.2f} USDT")
+
             if total_pnl > 0:
                 emoji = "✅"
                 result_text = f"GEWINN: +${total_pnl:.2f}"
             else:
                 emoji = "❌"
                 result_text = f"VERLUST: ${total_pnl:.2f}"
-            
-            message = f"""🎯 APEX TRADE GESCHLOSSEN!
 
-{emoji} {result_text}
-
-Asset: {coin}
-Exit: ${exit_price:,.2f}
-Size: {total_size:.5f}
-
-💰 Neue Balance: ${balance:,.2f}"""
-            
+            message = (
+                f"🎯 APEX TRADE GESCHLOSSEN!\n\n"
+                f"{emoji} {result_text}\n\n"
+                f"Asset: {coin}\n"
+                f"Exit: ${exit_price:,.4f}\n"
+                f"Size: {total_size}\n\n"
+                f"💰 Neue Balance: ${balance:,.2f} USDT"
+            )
             print(f"\n{emoji} {result_text}")
-            print("\n📢 Sende Telegram-Benachrichtigung...")
             send_telegram_notification(message)
-            
-            # Update P&L tracker
             update_pnl_tracker(total_pnl)
-                
+
         else:
-            print("⚠️  Keine geschlossenen Trades in letzten 24h gefunden")
+            print("⚠️  Keine Fill-Daten verfügbar")
             send_telegram_notification("🎯 APEX: Position geschlossen, aber keine Trade-Details gefunden.")
-        
+
     elif current_count > 0:
         # Position still running
         pos = positions[0]

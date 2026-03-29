@@ -12,24 +12,33 @@ import json
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.hyperliquid_client import HyperliquidClient
+from scripts.bitget_client import BitgetClient
 from telegram_sender import send_telegram_message
 
-TRADES_FILE = "/data/.openclaw/workspace/projects/apex-trading/data/trades.json"
-CAPITAL_FILE = "/data/.openclaw/workspace/projects/apex-trading/data/capital_tracking.json"
-PNL_TRACKER_FILE = "/data/.openclaw/workspace/projects/apex-trading/data/pnl_tracker.json"
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(PROJECT_DIR, "data")
+TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
+CAPITAL_FILE = os.path.join(DATA_DIR, "capital_tracking.json")
+PNL_TRACKER_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
+
+sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
+try:
+    from bot_config import DRY_RUN, CAPITAL
+except ImportError:
+    DRY_RUN = True
+    CAPITAL = 50.0
 
 
 def get_capital_tracking():
     """Lade Capital Tracking"""
     if not os.path.exists(CAPITAL_FILE):
         return {
-            "start_capital": 1721.80,
-            "adjusted_start_capital": 2300.54,
-            "total_deposits": 578.74,
-            "total_withdrawals": 0
+            "start_capital": CAPITAL,
+            "adjusted_start_capital": CAPITAL,
+            "total_deposits": 0,
+            "total_withdrawals": 0,
         }
-    with open(CAPITAL_FILE, 'r') as f:
+    with open(CAPITAL_FILE, "r") as f:
         return json.load(f)
 
 
@@ -54,13 +63,14 @@ def get_pnl_tracker():
 
 def run_daily_closeout():
     """Erstelle und sende Tages-Report"""
-    client = HyperliquidClient()
+    client = BitgetClient(dry_run=DRY_RUN)
 
     lines = ["\U0001f4c8 APEX Tages-Abschluss\n"]
 
     # Balance
     balance = client.get_balance()
-    lines.append(f"\U0001f4b0 Balance: ${balance:,.2f} USDC")
+    mode = " [DRY RUN]" if DRY_RUN else ""
+    lines.append(f"\U0001f4b0 Balance: ${balance:,.2f} USDT{mode}")
 
     # Gesamt P&L
     capital = get_capital_tracking()
