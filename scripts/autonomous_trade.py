@@ -122,7 +122,7 @@ def round_size(asset, size):
     return round(size, decimals)
 
 
-def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_low):
+def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_low, risk_usd=None):
     """
     Platziere Breakout Trade mit Stop-Loss und Take-Profit.
     Returns: dict mit Trade-Ergebnis
@@ -134,8 +134,11 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     else:
         stop_loss = box_high + puffer
 
+    # Risk: live Balance verwenden falls übergeben, sonst Fallback
+    effective_risk = risk_usd if risk_usd is not None else MAX_RISK_USD
+
     # Position Size: Risk / Stop-Distanz
-    size = client.calculate_position_size(MAX_RISK_USD, entry_price, stop_loss)
+    size = client.calculate_position_size(effective_risk, entry_price, stop_loss)
     size = round_size(asset, size)
 
     if size <= 0:
@@ -190,8 +193,8 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "size": size,
         "stop_loss": stop_loss,
         "take_profit": take_profit,
-        "risk_usd": MAX_RISK_USD,
-        "reward_usd": MAX_RISK_USD * 2,
+        "risk_usd": effective_risk,
+        "reward_usd": effective_risk * 2,
         "ratio": "2:1",
         "leverage": LEVERAGE,
         "dry_run": DRY_RUN,
@@ -205,9 +208,19 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "size": size,
         "stop_loss": stop_loss,
         "take_profit": take_profit,
+        "risk_usd": effective_risk,
         "sl_placed": sl_result.success,
         "tp_placed": tp_result.success,
     }
+
+
+def get_risk_usd(client):
+    """Hole live Balance und berechne Max-Risk in USD"""
+    balance = client.get_balance()
+    if balance and balance > 0:
+        return balance * MAX_RISK_PCT, balance
+    # Fallback auf Config-Wert falls API-Fehler
+    return CAPITAL * MAX_RISK_PCT, CAPITAL
 
 
 def scan_for_breakouts(client):
@@ -297,6 +310,10 @@ def main():
     print(f"   Box:   ${breakout['box_low']:,.4f} – ${breakout['box_high']:,.4f}")
     print(f"   Distanz: ${breakout['breakout_size']:,.4f}")
 
+    # Live Balance für Risk-Berechnung holen
+    risk_usd, balance = get_risk_usd(client)
+    print(f"\n💰 Balance: ${balance:.2f} USDT | Risk/Trade: ${risk_usd:.2f}")
+
     # Trade ausführen
     print(f"\n🚀 Führe {breakout['direction']} Trade aus...")
     result = execute_breakout_trade(
@@ -306,6 +323,7 @@ def main():
         breakout["current_price"],
         breakout["box_high"],
         breakout["box_low"],
+        risk_usd,
     )
 
     dry_tag = " [DRY RUN]" if DRY_RUN else ""
@@ -314,8 +332,8 @@ def main():
         print(f"\n✅ TRADE AUSGEFÜHRT{dry_tag}")
         print(f"   Entry:       ${result['entry']:,.4f}")
         print(f"   Size:        {result['size']}")
-        print(f"   Stop-Loss:   ${result['stop_loss']:,.4f}  (Risk: ${MAX_RISK_USD:.2f})")
-        print(f"   Take-Profit: ${result['take_profit']:,.4f}  (Reward: ${MAX_RISK_USD * 2:.2f})")
+        print(f"   Stop-Loss:   ${result['stop_loss']:,.4f}  (Risk: ${result['risk_usd']:.2f})")
+        print(f"   Take-Profit: ${result['take_profit']:,.4f}  (Reward: ${result['risk_usd'] * 2:.2f})")
         print(f"   Hebel:       {LEVERAGE}x")
         print(f"   SL: {'✅' if result['sl_placed'] else '❌'} | TP: {'✅' if result['tp_placed'] else '❌'}")
 
@@ -325,8 +343,8 @@ def main():
             f"{direction_emoji} {result['asset']} {result['direction'].upper()}\n"
             f"Entry: ${result['entry']:,.4f}\n"
             f"Size: {result['size']}\n"
-            f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${MAX_RISK_USD:.2f})\n"
-            f"Take-Profit: ${result['take_profit']:,.4f} (Reward: ${MAX_RISK_USD * 2:.2f})\n"
+            f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
+            f"Take-Profit: ${result['take_profit']:,.4f} (Reward: ${result['risk_usd'] * 2:.2f})\n"
             f"Hebel: {LEVERAGE}x | R:R 2:1\n"
             f"SL: {'✅' if result['sl_placed'] else '❌'} | TP: {'✅' if result['tp_placed'] else '❌'}"
         )
