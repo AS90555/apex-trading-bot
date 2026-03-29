@@ -138,14 +138,16 @@ class BitgetClient:
 
     def _auth_headers(self, method: str, path: str, body: str = "") -> Dict:
         ts = str(int(time.time() * 1000))
-        return {
+        headers = {
             "ACCESS-KEY": self.api_key,
             "ACCESS-SIGN": self._sign(ts, method, path, body),
             "ACCESS-TIMESTAMP": ts,
             "ACCESS-PASSPHRASE": self.passphrase,
-            "Content-Type": "application/json",
             "locale": "en-US",
         }
+        if method.upper() == "POST":
+            headers["Content-Type"] = "application/json"
+        return headers
 
     # ─── HTTP Helpers ─────────────────────────────────────────────────────────
 
