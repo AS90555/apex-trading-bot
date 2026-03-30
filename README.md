@@ -1,175 +1,138 @@
-# APEX Trading Bot 🚀
+# APEX Trading Bot
 
-**Opening Range Breakout (ORB) Strategy** für Hyperliquid Perpetuals (BTC, ETH, SOL, AVAX)
+Vollautomatischer Krypto-Trading-Bot mit zwei Strategien:
+- **ORB (Opening Range Breakout)** – Mo–Fr, 3 Sessions/Tag (Tokyo, EU, US)
+- **WeekendMomo** – Wochenend-Momentum auf AVAX
 
----
-
-## 📊 Überblick
-
-Automatisierter Trading-Bot der auf **Opening Range Breakouts** in 3 Sessions/Tag tradet:
-- **Tokyo Session:** 02:00 - 03:30 Berlin Time
-- **Europa Session:** 09:00 - 10:30 Berlin Time  
-- **USA Session:** 21:30 - 22:45 Berlin Time
-
-**Max 1 Trade pro Session** - konservativer Ansatz mit 2:1 Risk/Reward Ratio.
+**Exchange:** Bitget (USDT-Perpetual Futures)
+**Kapital:** 50 USDT | **Hebel:** 5x | **Risk/Trade:** 2% (~$1)
+**Assets:** ETH, SOL, AVAX (kein BTC – Mindestorder zu groß bei 50 USDT)
 
 ---
 
-## 🎯 Performance
-
-- **Startkapital:** $2,300.54 USDC (24.03.2026)
-- **Aktuelles P&L:** Siehe `FORTSCHRITT.md`
-- **Watchlist:** BTC > ETH > SOL > AVAX (nach Liquidität)
-
----
-
-## 🛠 Tech Stack
-
-- **Platform:** Hyperliquid (Non-Custodial DEX)
-- **Agent:** OpenClaw isolated agent mit Gemini Flash
-- **Scripts:** Python 3
-- **Notifications:** Telegram Bot (direkt via HTTP)
-- **Automation:** OpenClaw Cron Jobs
-
----
-
-## 📁 Struktur
-
-```
-apex-trading/
-├── scripts/              # Trading-Scripts
-│   ├── pre_market.py        # Pre-Market Setup
-│   ├── save_opening_range.py # Opening Range speichern
-│   ├── autonomous_trade.py   # Breakout-Check & Trade-Execution
-│   ├── position_monitor.py   # Position-Monitoring
-│   ├── session_summary.py    # Session-Summary Report
-│   └── telegram_sender.py    # Telegram-Benachrichtigungen
-├── config/               # Config & Credentials (NICHT IN GIT!)
-│   └── .env.hyperliquid.example
-├── data/                 # Trading-Daten
-│   ├── trades/              # Trade-History
-│   ├── positions/           # Position-Tracking
-│   └── sessions/            # Session-Logs
-├── PROJEKT.md           # Projekt-Dokumentation
-├── FORTSCHRITT.md       # Trading-Log & P&L
-├── ERKENNTNISSE.md      # Lessons Learned
-├── UMBAU-PLAN.md        # Isolierter Agent Setup
-└── README.md            # Diese Datei
-```
-
----
-
-## ⚙️ Setup
-
-### 1. Credentials
-
-Erstelle `config/.env.hyperliquid`:
-```bash
-HYPERLIQUID_PRIVATE_KEY=your_private_key_here
-HYPERLIQUID_WALLET=0xYourWalletAddress
-```
-
-Erstelle `.env.telegram`:
-```bash
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-```
-
-### 2. Dependencies
+## Setup (Server)
 
 ```bash
-pip install requests python-dotenv
+git clone https://github.com/AS90555/apex-trading-bot.git
+cd apex-trading-bot
+chmod +x setup_server.sh && ./setup_server.sh
+
+# Timezone prüfen (muss Europe/Berlin sein)
+timedatectl
+
+# API-Keys eintragen
+nano config/.env.bitget        # BITGET_API_KEY / BITGET_SECRET_KEY / BITGET_PASSPHRASE
+nano .env.telegram             # TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID
+
+# Testen
+source venv/bin/activate
+python scripts/bitget_client.py
+python scripts/pre_market.py eu
 ```
 
-### 3. Test
+---
+
+## Konfiguration (`config/bot_config.py`)
+
+| Parameter | Wert | Beschreibung |
+|---|---|---|
+| `DRY_RUN` | `True` | Auf `False` für Live-Trading |
+| `CAPITAL` | `50.0` | Startkapital in USDT |
+| `MAX_RISK_PCT` | `0.02` | 2% Risiko pro Trade |
+| `LEVERAGE` | `5` | 5x Hebel |
+| `MARGIN_MODE` | `isolated` | Isolated (sicherer) oder crossed |
+| `DRAWDOWN_KILL_PCT` | `0.50` | Kill-Switch bei 50% Drawdown |
+
+---
+
+## Cron-Schedule (Europe/Berlin)
+
+| Zeit | Script | Beschreibung |
+|---|---|---|
+| Mo–Fr 02:00 | `pre_market.py tokyo` | Tokyo Pre-Market Check |
+| Mo–Fr 02:15 | `save_opening_range.py` | Box speichern |
+| Mo–Fr 02:30–03:00 | `autonomous_trade.py` (3x) | Breakout-Checks |
+| Mo–Fr 03:30 | `session_summary.py tokyo` | Session-Zusammenfassung |
+| Mo–Fr 08:30 | `pre_market.py eu` | EU Pre-Market Check |
+| Mo–Fr 09:00 | `save_opening_range.py` | Box speichern |
+| Mo–Fr 09:15–10:00 | `autonomous_trade.py` (3x) | Breakout-Checks |
+| Mo–Fr 10:30 | `session_summary.py eu` | Session-Zusammenfassung |
+| Mo–Fr 21:00 | `pre_market.py us` | US Pre-Market Check |
+| Mo–Fr 21:30 | `save_opening_range.py` | Box speichern |
+| Mo–Fr 21:45–22:15 | `autonomous_trade.py` (4x) | Breakout-Checks |
+| Mo–Fr 23:00 | `daily_closeout.py` | Tages-Abschluss |
+| tägl. */30 | `position_monitor.py` | Offene Positionen |
+| Fr 23:00 | `weekend_momo.py --check` | WeekendMomo Signal-Check |
+| Sa 00:05 UTC | `weekend_momo.py --entry` | WeekendMomo Entry |
+| So 21:00 | `weekend_momo.py --exit` | WeekendMomo Exit |
+
+---
+
+## Bot steuern
 
 ```bash
-# Balance checken
-python3 scripts/position_monitor.py
+# Pausieren
+crontab -l > ~/apex_cron_backup.txt && crontab -r
 
-# Pre-Market Setup testen
-python3 scripts/pre_market.py eu
+# Wieder starten
+crontab ~/apex_cron_backup.txt
+
+# Aktiv? (0 = pausiert, >0 = läuft)
+crontab -l | grep -c scripts
+
+# Laufendes Script abbrechen
+pkill -f autonomous_trade.py
+
+# Logs live
+tail -f logs/eu.log
+tail -f logs/us.log
+tail -f logs/monitor.log
 ```
 
 ---
 
-## 🤖 Automation
+## Architektur
 
-Der Bot läuft über **OpenClaw Cron Jobs** (alle via isolated agent `apex-trading`).
-
-**Session-Schedule (Mo-Fr):**
-- 02:00: Tokyo Opening Range Start
-- 02:15-03:30: Tokyo Breakout-Checks (4x)
-- 09:00: EU Opening Range Start
-- 09:15-10:30: EU Breakout-Checks (4x)
-- 21:30: US Opening Range Start
-- 21:45-22:45: US Breakout-Checks (4x)
-
-**Position Monitor:** Alle 30 Min (auto on/off bei offenen Positionen)
-
----
-
-## 📊 Trading-Logik
-
-### Opening Range Breakout (ORB)
-1. **Pre-Market:** 30 Min vorher Setup
-2. **Opening:** 15 Min Opening Range festlegen (High/Low)
-3. **Breakout:** Preis bricht über High (LONG) oder unter Low (SHORT)
-4. **Entry:** Sofort Market Order
-5. **Stop-Loss:** Unterhalb Box (dynamisch)
-6. **Take-Profit:** 2:1 R/R automatisch
-
-### Asset-Priorisierung
-Bei mehreren gleichzeitigen Breakouts → Trade nur das Asset mit höchster Liquidität:
-1. BTC-PERP (beste Liquidität)
-2. ETH-PERP
-3. SOL-PERP
-4. AVAX-PERP
+```
+apex-trading-bot/
+├── config/
+│   ├── bot_config.py          ← Zentrale Konfiguration
+│   └── .env.bitget            ← API-Keys (gitignored)
+├── scripts/
+│   ├── bitget_client.py       ← Exchange-Client (HMAC-Auth, Orders, Balance)
+│   ├── autonomous_trade.py    ← Breakout-Erkennung & Trade-Ausführung
+│   ├── weekend_momo.py        ← Weekend-Momentum-Strategie (AVAX)
+│   ├── save_opening_range.py  ← Opening Range Box speichern
+│   ├── position_monitor.py    ← Offene Positionen überwachen
+│   ├── pre_market.py          ← Session-Start Health Check
+│   ├── daily_closeout.py      ← Tages-Abschluss Report
+│   ├── session_summary.py     ← Session-Ende Summary
+│   └── telegram_sender.py     ← Telegram Notifications
+├── data/                      ← Laufzeit-Daten (gitignored)
+├── logs/                      ← Log-Dateien (gitignored)
+├── .env.telegram              ← Telegram-Keys (gitignored)
+├── setup_server.sh            ← Einmaliges Server-Setup
+└── ERKENNTNISSE.md            ← Lessons Learned & bekannte Issues
+```
 
 ---
 
-## 📈 Performance-Tracking
+## Sicherheitsmechanismen
 
-Alle Trades werden in `FORTSCHRITT.md` dokumentiert:
-- Entry/Exit Prices
-- P&L ($ und %)
-- Win/Loss
-- Session (Tokyo/EU/US)
-
-**Capital Tracking:** `data/capital_tracking.json` - trackt Einzahlungen für korrektes P&L
-
----
-
-## 🔐 Security
-
-- **Private Keys:** Niemals in Git committen!
-- **Read-Only Monitoring:** Scripts nutzen nur Public API wo möglich
-- **Non-Custodial:** Funds bleiben auf deiner Wallet (Hyperliquid)
+- **Kill-Switch:** Keine neuen Trades wenn Balance < 50% Startkapital
+- **Preset SL/TP:** Jede Market Order enthält SL/TP als Preset
+- **Preset-Check:** Nach Fill prüfen ob Preset-SL/TP aktiv, nur dann separat setzen wenn nicht
+- **Emergency-Close:** Position sofort schließen wenn wirklich kein SL/TP gesetzt werden konnte
+- **Lock-File:** Verhindert parallele Ausführung durch Cron-Überlappung
+- **Orphan-Cleanup:** Verbleibende TP/SL-Orders vor jedem Trade löschen
+- **Isolated Margin:** Verlust begrenzt auf hinterlegte Margin (nicht gesamte Balance)
 
 ---
 
-## 📝 Dokumentation
+## Bitget API
 
-- **PROJEKT.md** - Vollständige Projekt-Doku
-- **FORTSCHRITT.md** - Alle Trades & Erkenntnisse
-- **ERKENNTNISSE.md** - Lessons Learned & Optimierungen
-- **UMBAU-PLAN.md** - Isolated Agent Migration
-
----
-
-## 🚀 Next Steps
-
-- [ ] 30-Tage Testphase (bis 24.04.2026)
-- [ ] Profitabilitäts-Analyse inkl. Fees
-- [ ] Hybrid-Strategie testen (Woche 2)
-- [ ] Wochenend-Trading evaluieren
-
----
-
-## 📞 Support
-
-Bei Fragen: Siehe `PROJEKT.md` oder kontaktiere Christian (@fefotec)
-
----
-
-**⚡ APEX - Always Profitable, Extremely Xciting!**
+- **Endpoint:** `https://api.bitget.com`
+- **Product Type:** `USDT-FUTURES`
+- **Auth:** HMAC-SHA256 (API Key + Secret + Passphrase)
+- **Rechte:** Lesen + Futures-Trading (kein Auszahlen)
+- **Docs:** https://www.bitget.com/api-doc/contract/intro
