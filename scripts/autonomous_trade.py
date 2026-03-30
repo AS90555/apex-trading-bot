@@ -190,28 +190,38 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         stop_loss = actual_entry + risk_actual
         take_profit = actual_entry - risk_actual * 2
 
-    # Warten bis Position in API sichtbar ist (Bitget braucht 1-3s)
+    # Warten bis Position in API sichtbar ist (Bitget braucht 3-5s)
     if not DRY_RUN:
-        time.sleep(3)
+        time.sleep(5)
 
-    # SL/TP separat setzen – mit Retry (2 Versuche)
-    sl_result = client.place_stop_loss(asset, stop_loss, size)
-    if not sl_result.success:
-        time.sleep(2)
-        sl_result = client.place_stop_loss(asset, stop_loss, size)
+    # Prüfen ob Preset-SL/TP vom Market-Order bereits aktiv sind
+    existing_tpsl = client.get_tpsl_orders(asset)
+    sl_ok = any(o.get("planType") == "loss_plan" for o in existing_tpsl)
+    tp_ok = any(o.get("planType") == "profit_plan" for o in existing_tpsl)
 
-    tp_result = client.place_take_profit(asset, take_profit, size)
-    if not tp_result.success:
-        time.sleep(2)
-        tp_result = client.place_take_profit(asset, take_profit, size)
+    if sl_ok:
+        print(f"   ✅ SL aktiv (Preset)")
+    else:
+        sl_r = client.place_stop_loss(asset, stop_loss, size)
+        if not sl_r.success:
+            time.sleep(2)
+            sl_r = client.place_stop_loss(asset, stop_loss, size)
+        sl_ok = sl_r.success
+        print(f"   {'✅' if sl_ok else '❌'} SL {'gesetzt' if sl_ok else 'FEHLER: ' + str(sl_r.error)}")
 
-    # KRITISCH: Wenn SL ODER TP nicht gesetzt werden konnten → Position sofort schließen
-    if not sl_result.success or not tp_result.success:
-        error_msg = (
-            f"SL={'OK' if sl_result.success else sl_result.error} | "
-            f"TP={'OK' if tp_result.success else tp_result.error}"
-        )
-        print(f"\n🚨 KRITISCH: SL/TP Platzierung fehlgeschlagen! {error_msg}")
+    if tp_ok:
+        print(f"   ✅ TP aktiv (Preset)")
+    else:
+        tp_r = client.place_take_profit(asset, take_profit, size)
+        if not tp_r.success:
+            time.sleep(2)
+            tp_r = client.place_take_profit(asset, take_profit, size)
+        tp_ok = tp_r.success
+        print(f"   {'✅' if tp_ok else '❌'} TP {'gesetzt' if tp_ok else 'FEHLER: ' + str(tp_r.error)}")
+
+    # KRITISCH: Wenn weder Preset noch separate SL/TP aktiv → Position sofort schließen
+    if not sl_ok or not tp_ok:
+        print(f"\n🚨 KRITISCH: SL/TP nicht gesetzt (SL={sl_ok}, TP={tp_ok})")
         print("   → Schließe Position sofort als Sicherheitsmaßnahme...")
 
         close_result = client.place_market_order(
@@ -222,16 +232,16 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         )
 
         alert_msg = (
-            f"🚨 APEX NOTFALL-SCHLIESSSUNG{' [DRY RUN]' if DRY_RUN else ''}\n\n"
-            f"{asset} {direction.upper()} wurde geöffnet aber SL/TP NICHT gesetzt!\n"
-            f"Fehler: {error_msg}\n"
+            f"🚨 APEX NOTFALL-SCHLIESSUNG{' [DRY RUN]' if DRY_RUN else ''}\n\n"
+            f"{asset} {direction.upper()} geöffnet aber SL/TP NICHT gesetzt!\n"
+            f"SL={sl_ok} | TP={tp_ok}\n"
             f"Position {'geschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
         )
         send_telegram_message(alert_msg)
 
         return {
             "success": False,
-            "error": f"SL/TP fehlgeschlagen – Position notgeschlossen: {error_msg}",
+            "error": f"SL/TP fehlgeschlagen – Position notgeschlossen",
         }
 
     # Trade loggen (nur wenn SL + TP erfolgreich gesetzt)

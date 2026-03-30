@@ -315,6 +315,20 @@ class BitgetClient:
             print(f"⚠️  Positions-Fehler: {e}")
             return []
 
+    def get_tpsl_orders(self, coin: str) -> List[Dict]:
+        """Gibt aktive TPSL-Orders für ein Asset zurück (Preset-Check)"""
+        if self.dry_run:
+            return []
+        try:
+            data = self._get("/api/v2/mix/order/tpsl-pending", {
+                "productType": PRODUCT_TYPE,
+                "symbol": self._symbol(coin),
+            }, auth=True)
+            return data.get("entrustedList", []) if isinstance(data, dict) else []
+        except Exception as e:
+            print(f"⚠️  TPSL-Order Check Fehler: {e}")
+            return []
+
     def get_recent_fills(self, coin: str = None, limit: int = 20) -> List[Dict]:
         """Letzte abgeschlossene Trades (Fill-History)"""
         if not self.is_ready:

@@ -328,25 +328,37 @@ def execute_entry():
         stop_loss = actual_entry + sl_distance
         take_profit = actual_entry - tp_distance
 
-    sl_result = client.place_stop_loss(WEEKEND_ASSET, stop_loss, size)
-    if not sl_result.success:
-        import time
-        time.sleep(2)
-        sl_result = client.place_stop_loss(WEEKEND_ASSET, stop_loss, size)
+    import time
+    time.sleep(5)
 
-    tp_result = client.place_take_profit(WEEKEND_ASSET, take_profit, size)
-    if not tp_result.success:
-        import time
-        time.sleep(2)
-        tp_result = client.place_take_profit(WEEKEND_ASSET, take_profit, size)
+    # Prüfen ob Preset-SL/TP bereits aktiv
+    existing_tpsl = client.get_tpsl_orders(WEEKEND_ASSET)
+    sl_ok = any(o.get("planType") == "loss_plan" for o in existing_tpsl)
+    tp_ok = any(o.get("planType") == "profit_plan" for o in existing_tpsl)
 
-    # KRITISCH: Wenn SL ODER TP fehlschlägt → Position sofort schließen
-    if not sl_result.success or not tp_result.success:
-        error_msg = (
-            f"SL={'OK' if sl_result.success else sl_result.error} | "
-            f"TP={'OK' if tp_result.success else tp_result.error}"
-        )
-        print(f"\n🚨 KRITISCH: SL/TP fehlgeschlagen! {error_msg}")
+    if sl_ok:
+        print(f"   ✅ SL aktiv (Preset)")
+    else:
+        sl_r = client.place_stop_loss(WEEKEND_ASSET, stop_loss, size)
+        if not sl_r.success:
+            time.sleep(2)
+            sl_r = client.place_stop_loss(WEEKEND_ASSET, stop_loss, size)
+        sl_ok = sl_r.success
+        print(f"   {'✅' if sl_ok else '❌'} SL {'gesetzt' if sl_ok else 'FEHLER'}")
+
+    if tp_ok:
+        print(f"   ✅ TP aktiv (Preset)")
+    else:
+        tp_r = client.place_take_profit(WEEKEND_ASSET, take_profit, size)
+        if not tp_r.success:
+            time.sleep(2)
+            tp_r = client.place_take_profit(WEEKEND_ASSET, take_profit, size)
+        tp_ok = tp_r.success
+        print(f"   {'✅' if tp_ok else '❌'} TP {'gesetzt' if tp_ok else 'FEHLER'}")
+
+    # KRITISCH: Wenn weder Preset noch separate SL/TP aktiv → Position schließen
+    if not sl_ok or not tp_ok:
+        print(f"\n🚨 KRITISCH: SL/TP nicht gesetzt (SL={sl_ok}, TP={tp_ok})")
         close_result = client.place_market_order(
             coin=WEEKEND_ASSET,
             is_buy=not is_buy,
@@ -356,7 +368,7 @@ def execute_entry():
         alert_msg = (
             f"🚨 WeekendMomo NOTFALL{dry_tag}\n\n"
             f"{WEEKEND_ASSET} geöffnet aber SL/TP NICHT gesetzt!\n"
-            f"Fehler: {error_msg}\n"
+            f"SL={sl_ok} | TP={tp_ok}\n"
             f"Position {'geschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
         )
         send_telegram_message(alert_msg)
