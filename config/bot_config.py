@@ -19,6 +19,7 @@ DRY_RUN = True
 CAPITAL = 50.0          # Startkapital in USDT
 MAX_RISK_PCT = 0.02     # Max Risiko pro Trade (2%)
 MIN_RR_RATIO = 2.0      # Mindest Risk/Reward Verhältnis
+DRAWDOWN_KILL_PCT = 0.50  # Kill-Switch: keine Trades wenn Balance < 50% von CAPITAL
 
 # ========================
 # HEBEL

@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
     from bot_config import (
         DRY_RUN, CAPITAL, MAX_RISK_PCT, ASSET_PRIORITY,
-        BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS
+        BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS, DRAWDOWN_KILL_PCT
     )
 except ImportError:
     DRY_RUN = True
@@ -34,6 +34,7 @@ except ImportError:
     BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15}
     LEVERAGE = 5
     SIZE_DECIMALS = {"ETH": 2, "SOL": 1, "AVAX": 0}
+    DRAWDOWN_KILL_PCT = 0.50
 
 MAX_RISK_USD = CAPITAL * MAX_RISK_PCT
 
@@ -159,6 +160,11 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         take_profit = entry_price - reward_per_coin
 
     is_buy = (direction == "long")
+
+    # Orphan-Order Cleanup: verbleibende SL/TP-Orders vom letzten Trade löschen
+    # (Bitget cancelt die Gegenseite nicht automatisch wenn TP/SL triggert)
+    print(f"   🧹 Bereinige verbleibende TP/SL-Orders für {asset}...")
+    client.cancel_tpsl_orders(asset)
 
     # Market Order mit integriertem SL/TP (Preset als erste Absicherung)
     order_result = client.place_market_order(
@@ -367,6 +373,21 @@ def main():
         # Live Balance für Risk-Berechnung holen
         risk_usd, balance = get_risk_usd(client)
         print(f"\n💰 Balance: ${balance:.2f} USDT | Risk/Trade: ${risk_usd:.2f}")
+
+        # Kill-Switch: 50% Drawdown → keine neuen Trades
+        kill_threshold = CAPITAL * DRAWDOWN_KILL_PCT
+        if balance < kill_threshold and not DRY_RUN:
+            msg = (
+                f"🛑 APEX KILL-SWITCH AKTIV\n\n"
+                f"Balance ${balance:.2f} USDT unter {int(DRAWDOWN_KILL_PCT*100)}% "
+                f"von Startkapital (${CAPITAL:.0f} USDT)\n"
+                f"Schwelle: ${kill_threshold:.2f} USDT\n"
+                f"Keine neuen Trades bis manuell freigegeben."
+            )
+            print(f"\n🛑 KILL-SWITCH: Balance ${balance:.2f} < ${kill_threshold:.2f} – Stop!")
+            send_telegram_message(msg)
+            print("NO_REPLY")
+            return
 
         # Trade ausführen
         print(f"\n🚀 Führe {breakout['direction']} Trade aus...")
