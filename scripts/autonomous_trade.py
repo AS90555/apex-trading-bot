@@ -8,6 +8,8 @@ Wird von Cron Jobs aufgerufen, checkt Breakouts, platziert Orders autonom.
 import os
 import sys
 import json
+import fcntl
+import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,6 +40,7 @@ MAX_RISK_USD = CAPITAL * MAX_RISK_PCT
 # Datenpfade
 BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
+LOCK_FILE = os.path.join(DATA_DIR, "autonomous_trade.lock")
 
 
 def load_boxes():
@@ -157,7 +160,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
 
     is_buy = (direction == "long")
 
-    # Market Order mit integriertem SL/TP
+    # Market Order mit integriertem SL/TP (Preset als erste Absicherung)
     order_result = client.place_market_order(
         coin=asset,
         is_buy=is_buy,
@@ -172,8 +175,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
 
     actual_entry = order_result.avg_price
 
-    # SL/TP mit tatsächlichem Entry neu berechnen und separat setzen
-    # (Preset im Market-Order-Call reicht oft aus, aber sicherheitshalber)
+    # SL/TP mit tatsächlichem Entry neu berechnen
     risk_actual = abs(actual_entry - stop_loss)
     if direction == "long":
         stop_loss = actual_entry - risk_actual
@@ -182,10 +184,51 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         stop_loss = actual_entry + risk_actual
         take_profit = actual_entry - risk_actual * 2
 
-    sl_result = client.place_stop_loss(asset, stop_loss, size)
-    tp_result = client.place_take_profit(asset, take_profit, size)
+    # Warten bis Position in API sichtbar ist (Bitget braucht 1-3s)
+    if not DRY_RUN:
+        time.sleep(3)
 
-    # Trade loggen
+    # SL/TP separat setzen – mit Retry (2 Versuche)
+    sl_result = client.place_stop_loss(asset, stop_loss, size)
+    if not sl_result.success:
+        time.sleep(2)
+        sl_result = client.place_stop_loss(asset, stop_loss, size)
+
+    tp_result = client.place_take_profit(asset, take_profit, size)
+    if not tp_result.success:
+        time.sleep(2)
+        tp_result = client.place_take_profit(asset, take_profit, size)
+
+    # KRITISCH: Wenn SL ODER TP nicht gesetzt werden konnten → Position sofort schließen
+    if not sl_result.success or not tp_result.success:
+        error_msg = (
+            f"SL={'OK' if sl_result.success else sl_result.error} | "
+            f"TP={'OK' if tp_result.success else tp_result.error}"
+        )
+        print(f"\n🚨 KRITISCH: SL/TP Platzierung fehlgeschlagen! {error_msg}")
+        print("   → Schließe Position sofort als Sicherheitsmaßnahme...")
+
+        close_result = client.place_market_order(
+            coin=asset,
+            is_buy=not is_buy,
+            size=size,
+            reduce_only=True,
+        )
+
+        alert_msg = (
+            f"🚨 APEX NOTFALL-SCHLIESSSUNG{' [DRY RUN]' if DRY_RUN else ''}\n\n"
+            f"{asset} {direction.upper()} wurde geöffnet aber SL/TP NICHT gesetzt!\n"
+            f"Fehler: {error_msg}\n"
+            f"Position {'geschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
+        )
+        send_telegram_message(alert_msg)
+
+        return {
+            "success": False,
+            "error": f"SL/TP fehlgeschlagen – Position notgeschlossen: {error_msg}",
+        }
+
+    # Trade loggen (nur wenn SL + TP erfolgreich gesetzt)
     log_trade({
         "asset": asset,
         "direction": direction,
@@ -265,96 +308,109 @@ def main():
     print("APEX - Autonomous Trade Check")
     print("=" * 60)
 
-    if DRY_RUN:
-        print("⚠️  DRY RUN MODUS - kein echtes Geld")
-
-    # Session prüfen
-    session = get_current_session()
-    if not session:
-        print("⚠️  Außerhalb der Trading-Sessions")
-        print("NO_REPLY")
+    # File-Lock: verhindert parallele Ausführung durch Cron-Überlappung
+    os.makedirs(DATA_DIR, exist_ok=True)
+    lock_fd = open(LOCK_FILE, "w")
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        print("⏳ Anderer autonomous_trade.py läuft noch – Abbruch.")
+        lock_fd.close()
         return
 
-    print(f"📍 Session: {session.upper()}")
+    try:
+        if DRY_RUN:
+            print("⚠️  DRY RUN MODUS - kein echtes Geld")
 
-    # Bereits getradet heute?
-    if has_traded_today_in_session(session):
-        msg = f"⏭️ APEX {session.upper()}: Skip – bereits getradet"
-        print(f"\n✅ {msg}")
-        send_telegram_message(msg)
-        print("NO_REPLY")
-        return
+        # Session prüfen
+        session = get_current_session()
+        if not session:
+            print("⚠️  Außerhalb der Trading-Sessions")
+            print("NO_REPLY")
+            return
 
-    client = BitgetClient(dry_run=DRY_RUN)
+        print(f"📍 Session: {session.upper()}")
 
-    # Offene Positionen
-    positions = client.get_positions()
-    if positions:
-        pos_list = ", ".join([f"{p.coin} {'LONG' if p.size > 0 else 'SHORT'}" for p in positions])
-        print(f"\n📊 Bestehende Positionen: {pos_list}")
+        # Bereits getradet heute?
+        if has_traded_today_in_session(session):
+            msg = f"⏭️ APEX {session.upper()}: Skip – bereits getradet"
+            print(f"\n✅ {msg}")
+            send_telegram_message(msg)
+            print("NO_REPLY")
+            return
 
-    # Breakout suchen
-    print("\n🔍 Suche Breakouts...")
-    breakout = scan_for_breakouts(client)
+        client = BitgetClient(dry_run=DRY_RUN)
 
-    if not breakout:
-        msg = f"🔍 APEX {session.upper()}: Kein Breakout – kein Trade"
-        print(f"   {msg}")
-        send_telegram_message(msg)
-        print("NO_REPLY")
-        return
+        # Offene Positionen
+        positions = client.get_positions()
+        if positions:
+            pos_list = ", ".join([f"{p.coin} {'LONG' if p.size > 0 else 'SHORT'}" for p in positions])
+            print(f"\n📊 Bestehende Positionen: {pos_list}")
 
-    print(f"\n🎯 BREAKOUT!")
-    print(f"   {breakout['asset']} {breakout['direction'].upper()}")
-    print(f"   Preis: ${breakout['current_price']:,.4f}")
-    print(f"   Box:   ${breakout['box_low']:,.4f} – ${breakout['box_high']:,.4f}")
-    print(f"   Distanz: ${breakout['breakout_size']:,.4f}")
+        # Breakout suchen
+        print("\n🔍 Suche Breakouts...")
+        breakout = scan_for_breakouts(client)
 
-    # Live Balance für Risk-Berechnung holen
-    risk_usd, balance = get_risk_usd(client)
-    print(f"\n💰 Balance: ${balance:.2f} USDT | Risk/Trade: ${risk_usd:.2f}")
+        if not breakout:
+            msg = f"🔍 APEX {session.upper()}: Kein Breakout – kein Trade"
+            print(f"   {msg}")
+            send_telegram_message(msg)
+            print("NO_REPLY")
+            return
 
-    # Trade ausführen
-    print(f"\n🚀 Führe {breakout['direction']} Trade aus...")
-    result = execute_breakout_trade(
-        client,
-        breakout["asset"],
-        breakout["direction"],
-        breakout["current_price"],
-        breakout["box_high"],
-        breakout["box_low"],
-        risk_usd,
-    )
+        print(f"\n🎯 BREAKOUT!")
+        print(f"   {breakout['asset']} {breakout['direction'].upper()}")
+        print(f"   Preis: ${breakout['current_price']:,.4f}")
+        print(f"   Box:   ${breakout['box_low']:,.4f} – ${breakout['box_high']:,.4f}")
+        print(f"   Distanz: ${breakout['breakout_size']:,.4f}")
 
-    dry_tag = " [DRY RUN]" if DRY_RUN else ""
+        # Live Balance für Risk-Berechnung holen
+        risk_usd, balance = get_risk_usd(client)
+        print(f"\n💰 Balance: ${balance:.2f} USDT | Risk/Trade: ${risk_usd:.2f}")
 
-    if result["success"]:
-        print(f"\n✅ TRADE AUSGEFÜHRT{dry_tag}")
-        print(f"   Entry:       ${result['entry']:,.4f}")
-        print(f"   Size:        {result['size']}")
-        print(f"   Stop-Loss:   ${result['stop_loss']:,.4f}  (Risk: ${result['risk_usd']:.2f})")
-        print(f"   Take-Profit: ${result['take_profit']:,.4f}  (Reward: ${result['risk_usd'] * 2:.2f})")
-        print(f"   Hebel:       {LEVERAGE}x")
-        print(f"   SL: {'✅' if result['sl_placed'] else '❌'} | TP: {'✅' if result['tp_placed'] else '❌'}")
-
-        direction_emoji = "🟢" if result["direction"] == "long" else "🔴"
-        msg = (
-            f"🚀 APEX TRADE{dry_tag}\n\n"
-            f"{direction_emoji} {result['asset']} {result['direction'].upper()}\n"
-            f"Entry: ${result['entry']:,.4f}\n"
-            f"Size: {result['size']}\n"
-            f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
-            f"Take-Profit: ${result['take_profit']:,.4f} (Reward: ${result['risk_usd'] * 2:.2f})\n"
-            f"Hebel: {LEVERAGE}x | R:R 2:1\n"
-            f"SL: {'✅' if result['sl_placed'] else '❌'} | TP: {'✅' if result['tp_placed'] else '❌'}"
+        # Trade ausführen
+        print(f"\n🚀 Führe {breakout['direction']} Trade aus...")
+        result = execute_breakout_trade(
+            client,
+            breakout["asset"],
+            breakout["direction"],
+            breakout["current_price"],
+            breakout["box_high"],
+            breakout["box_low"],
+            risk_usd,
         )
-        send_telegram_message(msg)
-    else:
-        print(f"\n❌ TRADE FEHLGESCHLAGEN: {result.get('error')}")
-        send_telegram_message(f"❌ APEX TRADE FEHLER{dry_tag}: {result.get('error')}")
 
-    print("NO_REPLY")
-    return result
+        dry_tag = " [DRY RUN]" if DRY_RUN else ""
+
+        if result["success"]:
+            print(f"\n✅ TRADE AUSGEFÜHRT{dry_tag}")
+            print(f"   Entry:       ${result['entry']:,.4f}")
+            print(f"   Size:        {result['size']}")
+            print(f"   Stop-Loss:   ${result['stop_loss']:,.4f}  (Risk: ${result['risk_usd']:.2f})")
+            print(f"   Take-Profit: ${result['take_profit']:,.4f}  (Reward: ${result['risk_usd'] * 2:.2f})")
+            print(f"   Hebel:       {LEVERAGE}x")
+
+            direction_emoji = "🟢" if result["direction"] == "long" else "🔴"
+            msg = (
+                f"🚀 APEX TRADE{dry_tag}\n\n"
+                f"{direction_emoji} {result['asset']} {result['direction'].upper()}\n"
+                f"Entry: ${result['entry']:,.4f}\n"
+                f"Size: {result['size']}\n"
+                f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
+                f"Take-Profit: ${result['take_profit']:,.4f} (Reward: ${result['risk_usd'] * 2:.2f})\n"
+                f"Hebel: {LEVERAGE}x | R:R 2:1"
+            )
+            send_telegram_message(msg)
+        else:
+            print(f"\n❌ TRADE FEHLGESCHLAGEN: {result.get('error')}")
+            send_telegram_message(f"❌ APEX TRADE FEHLER{dry_tag}: {result.get('error')}")
+
+        print("NO_REPLY")
+        return result
+
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
 
 
 if __name__ == "__main__":
