@@ -28,6 +28,12 @@ BASE_URL = "https://api.bitget.com"
 PRODUCT_TYPE = "USDT-FUTURES"
 MARGIN_COIN = "USDT"
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config"))
+try:
+    from bot_config import MARGIN_MODE
+except ImportError:
+    MARGIN_MODE = "isolated"
+
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DIR = os.path.join(PROJECT_DIR, "config")
 DATA_DIR = os.path.join(PROJECT_DIR, "data")
@@ -393,7 +399,7 @@ class BitgetClient:
         body = {
             "symbol": self._symbol(coin),
             "productType": PRODUCT_TYPE,
-            "marginMode": "crossed",
+            "marginMode": MARGIN_MODE,
             "marginCoin": MARGIN_COIN,
             "size": str(size),
             "side": side,

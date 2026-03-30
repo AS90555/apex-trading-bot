@@ -28,6 +28,8 @@ DRAWDOWN_KILL_PCT = 0.50  # Kill-Switch: keine Trades wenn Balance < 50% von CAP
 LEVERAGE = 5            # Hebel (5x empfohlen bei 50 USDT)
                         # Nur für Mindestordergröße nötig – Risk bleibt 2%
 
+MARGIN_MODE = "isolated"  # "isolated" (sicherer, klein Konto) oder "crossed"
+
 # ========================
 # TRADING ASSETS
 # ========================
