@@ -482,7 +482,7 @@ class BitgetClient:
             print(f"[DRY RUN] Cancel TP/SL für {coin}")
             return True
         try:
-            self._post("/api/v2/mix/order/cancel-plan-order", {
+            self._post("/api/v2/mix/order/cancel-all-plan-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,

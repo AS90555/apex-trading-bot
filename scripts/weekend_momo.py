@@ -329,7 +329,38 @@ def execute_entry():
         take_profit = actual_entry - tp_distance
 
     sl_result = client.place_stop_loss(WEEKEND_ASSET, stop_loss, size)
+    if not sl_result.success:
+        import time
+        time.sleep(2)
+        sl_result = client.place_stop_loss(WEEKEND_ASSET, stop_loss, size)
+
     tp_result = client.place_take_profit(WEEKEND_ASSET, take_profit, size)
+    if not tp_result.success:
+        import time
+        time.sleep(2)
+        tp_result = client.place_take_profit(WEEKEND_ASSET, take_profit, size)
+
+    # KRITISCH: Wenn SL ODER TP fehlschlägt → Position sofort schließen
+    if not sl_result.success or not tp_result.success:
+        error_msg = (
+            f"SL={'OK' if sl_result.success else sl_result.error} | "
+            f"TP={'OK' if tp_result.success else tp_result.error}"
+        )
+        print(f"\n🚨 KRITISCH: SL/TP fehlgeschlagen! {error_msg}")
+        close_result = client.place_market_order(
+            coin=WEEKEND_ASSET,
+            is_buy=not is_buy,
+            size=size,
+            reduce_only=True,
+        )
+        alert_msg = (
+            f"🚨 WeekendMomo NOTFALL{dry_tag}\n\n"
+            f"{WEEKEND_ASSET} geöffnet aber SL/TP NICHT gesetzt!\n"
+            f"Fehler: {error_msg}\n"
+            f"Position {'geschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
+        )
+        send_telegram_message(alert_msg)
+        return
 
     log_trade({
         "asset": WEEKEND_ASSET,
