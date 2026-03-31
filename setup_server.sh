@@ -80,65 +80,9 @@ PYTHON="$REPO_DIR/venv/bin/python3"
 LOG="$REPO_DIR/logs"
 SCRIPTS="$REPO_DIR/scripts"
 
-# Aktuelle Crontab sichern
-crontab -l > /tmp/apex_crontab_backup.txt 2>/dev/null || true
-echo "   Backup gesichert: /tmp/apex_crontab_backup.txt"
-
-# APEX-Block aus bestehender Crontab entfernen (falls vorhanden)
-grep -v "APEX" /tmp/apex_crontab_backup.txt > /tmp/apex_crontab_clean.txt 2>/dev/null || true
-
-# APEX Cron-Jobs hinzufügen
-# WICHTIG: Alle Zeiten in Europe/Berlin Timezone
-# Server muss auf Berlin-Zeit laufen ODER Zeiten entsprechend anpassen!
-
-cat >> /tmp/apex_crontab_clean.txt << EOF
-
-# ============================================================
-# APEX Trading Bot – Cron Jobs
-# Alle Zeiten: Europe/Berlin
-# Server-Timezone prüfen: timedatectl
-# ============================================================
-
-# ─── TOKYO SESSION (Mo-Fr 02:00–03:30 Berlin) ────────────────
-0  2 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/pre_market.py tokyo >> $LOG/tokyo.log 2>&1
-15 2 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/save_opening_range.py >> $LOG/tokyo.log 2>&1
-30 2 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/tokyo.log 2>&1
-45 2 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/tokyo.log 2>&1
-0  3 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/tokyo.log 2>&1
-30 3 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/session_summary.py tokyo >> $LOG/tokyo.log 2>&1
-
-# ─── EU SESSION (Mo-Fr 08:30–10:30 Berlin) ───────────────────
-30 8 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/pre_market.py eu >> $LOG/eu.log 2>&1
-0  9 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/save_opening_range.py >> $LOG/eu.log 2>&1
-15 9 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/eu.log 2>&1
-30 9 * * 1-5  cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/eu.log 2>&1
-0  10 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/eu.log 2>&1
-30 10 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/session_summary.py eu >> $LOG/eu.log 2>&1
-
-# ─── USA SESSION (Mo-Fr 21:00–23:00 Berlin) ──────────────────
-0  21 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/pre_market.py us >> $LOG/us.log 2>&1
-30 21 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/save_opening_range.py >> $LOG/us.log 2>&1
-45 21 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/us.log 2>&1
-0  22 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/us.log 2>&1
-15 22 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/us.log 2>&1
-45 22 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/autonomous_trade.py >> $LOG/us.log 2>&1
-0  23 * * 1-5 cd $REPO_DIR && $PYTHON $SCRIPTS/daily_closeout.py >> $LOG/daily.log 2>&1
-
-# ─── POSITION MONITOR (alle 30 Min, Mo-So) ───────────────────
-*/30 * * * *  cd $REPO_DIR && $PYTHON $SCRIPTS/position_monitor.py >> $LOG/monitor.log 2>&1
-
-# ─── WEEKEND MOMO (AVAX) ─────────────────────────────────────
-0  23 * * 5   cd $REPO_DIR && $PYTHON $SCRIPTS/weekend_momo.py --check >> $LOG/weekend.log 2>&1
-5  0  * * 6   cd $REPO_DIR && $PYTHON $SCRIPTS/weekend_momo.py --entry >> $LOG/weekend.log 2>&1
-0  21 * * 0   cd $REPO_DIR && $PYTHON $SCRIPTS/weekend_momo.py --exit  >> $LOG/weekend.log 2>&1
-
-# ─── LOG ROTATION (täglich 04:00) ────────────────────────────
-0  4  * * *   find $LOG -name "*.log" -size +5M -exec truncate -s 1M {} \;
-
-EOF
-
-crontab /tmp/apex_crontab_clean.txt
-echo "   ✅ Crontab eingerichtet ($(grep -c 'APEX\|scripts' /tmp/apex_crontab_clean.txt) Zeilen)"
+# Crontab aus Template installieren (idempotent – ersetzt immer komplett)
+crontab "$REPO_DIR/crontab_template.txt"
+echo "   ✅ Crontab installiert ($(grep -c '^[^#]' "$REPO_DIR/crontab_template.txt") Jobs)"
 
 echo ""
 echo "============================================================"

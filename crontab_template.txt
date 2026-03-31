@@ -1,0 +1,41 @@
+# ============================================================
+# APEX Trading Bot – Cron Jobs
+# Alle Zeiten: Europe/Berlin
+# Server-Timezone prüfen: timedatectl
+# ============================================================
+
+# ─── TOKYO SESSION (Mo-Fr 02:00–03:30 Berlin) ────────────────
+0  2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py tokyo >> /root/apex-trading-bot/logs/tokyo.log 2>&1
+15 2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
+30 2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
+45 2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
+0  3 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
+30 3 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py tokyo >> /root/apex-trading-bot/logs/tokyo.log 2>&1
+
+# ─── EU SESSION (Mo-Fr 08:30–10:30 Berlin) ───────────────────
+30 8 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py eu >> /root/apex-trading-bot/logs/eu.log 2>&1
+0  9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+15 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+30 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+0  10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+30 10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py eu >> /root/apex-trading-bot/logs/eu.log 2>&1
+
+# ─── USA SESSION (Mo-Fr 21:00–23:00 Berlin) ──────────────────
+0  21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py us >> /root/apex-trading-bot/logs/us.log 2>&1
+30 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/us.log 2>&1
+45 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
+0  22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
+15 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
+45 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
+0  23 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/daily_closeout.py >> /root/apex-trading-bot/logs/daily.log 2>&1
+
+# ─── POSITION MONITOR (alle 30 Min, Mo-So) ───────────────────
+*/30 * * * *  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/position_monitor.py >> /root/apex-trading-bot/logs/monitor.log 2>&1
+
+# ─── WEEKEND MOMO (AVAX) ─────────────────────────────────────
+0  23 * * 5   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/weekend_momo.py --check >> /root/apex-trading-bot/logs/weekend.log 2>&1
+5  0  * * 6   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/weekend_momo.py --entry >> /root/apex-trading-bot/logs/weekend.log 2>&1
+0  21 * * 0   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/weekend_momo.py --exit  >> /root/apex-trading-bot/logs/weekend.log 2>&1
+
+# ─── LOG ROTATION (täglich 04:00) ────────────────────────────
+0  4  * * *   find /root/apex-trading-bot/logs -name "*.log" -size +5M -exec truncate -s 1M {} \;
