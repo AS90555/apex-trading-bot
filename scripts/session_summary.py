@@ -131,7 +131,7 @@ def format_summary(session):
 
     traded, trade_data = has_traded_in_session(session)
     breakouts = get_session_breakouts(client)
-    balance = client.get_balance() or 0.0
+    equity = client.get_equity() or client.get_balance() or 0.0
 
     lines = [
         f"{emoji} *{name} Session Abschluss*{dry_tag}",
@@ -181,8 +181,8 @@ def format_summary(session):
     lines.append("")
 
     # Balance & P&L
-    lines.append(f"*Balance:* ${balance:,.2f} USDT")
-    pnl = balance - CAPITAL
+    lines.append(f"*Account Equity:* ${equity:,.2f} USDT")
+    pnl = equity - CAPITAL
     if CAPITAL > 0:
         pnl_pct = (pnl / CAPITAL) * 100
         pnl_icon = "📈" if pnl >= 0 else "📉"

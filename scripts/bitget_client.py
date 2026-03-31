@@ -280,6 +280,22 @@ class BitgetClient:
             print(f"⚠️  Balance-Fehler: {e}")
         return 0.0
 
+    def get_equity(self) -> float:
+        """Gesamte Equity (Available + Margin + Unrealized PnL)"""
+        if not self.is_ready:
+            return 0.0
+        try:
+            data = self._get("/api/v2/mix/account/accounts", {
+                "productType": PRODUCT_TYPE,
+            }, auth=True)
+            accounts = data if isinstance(data, list) else []
+            for acc in accounts:
+                if acc.get("marginCoin") == "USDT":
+                    return float(acc.get("equity", acc.get("usdtEquity", acc.get("available", 0))))
+        except Exception as e:
+            print(f"⚠️  Equity-Fehler: {e}")
+        return 0.0
+
     def get_positions(self) -> List[Position]:
         """Alle offenen Positionen"""
         if not self.is_ready:
