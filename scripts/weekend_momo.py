@@ -24,7 +24,7 @@ import json
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.bitget_client import BitgetClient
+from scripts.bitget_client import BitgetClient, OrderResult
 from telegram_sender import send_telegram_message
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -330,6 +330,9 @@ def execute_entry():
 
     import time
     time.sleep(5)
+
+    sl_result = OrderResult(success=False, error="SL nicht gesetzt")
+    tp_result = OrderResult(success=False, error="TP nicht gesetzt")
 
     # Prüfen ob Preset-SL/TP bereits aktiv
     existing_tpsl = client.get_tpsl_orders(WEEKEND_ASSET)
