@@ -114,7 +114,10 @@ def main():
             latest = fills[0]
             coin = latest.get("symbol", "").replace("USDT", "")
             exit_price = float(latest.get("price", 0))
-            total_size = float(latest.get("size", 0))
+            base_vol = float(latest.get("baseVolume", 0))
+            size_val = float(latest.get("size", 0))
+            fill_sz = float(latest.get("fillSz", 0))
+            total_size = base_vol if base_vol > 0 else (size_val if size_val > 0 else fill_sz)
             total_pnl = float(latest.get("profit", 0))
 
             print(f"\n💰 FINAL RESULT:")
