@@ -8,6 +8,7 @@ Speichert High/Low der ersten 15 Min für spätere Breakout-Checks
 import os
 import sys
 import json
+import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,14 +40,18 @@ def save_opening_range():
     print("=" * 60)
     
     for asset in assets:
-        # Get 15m candle (current)
-        candles = client.get_candles(asset, "15m", limit=1)
-        
-        if not candles:
+        # limit=2: candles sortiert oldest-first → candles[0] = abgeschlossene Kerze
+        # candles[1] = aktuell laufende Kerze (Range=0 → unbrauchbar)
+        candles = client.get_candles(asset, "15m", limit=2)
+        if len(candles) < 2:
+            time.sleep(3)
+            candles = client.get_candles(asset, "15m", limit=2)
+
+        if len(candles) < 2:
             print(f"⚠️  No candles for {asset}")
             continue
-        
-        candle = candles[0]
+
+        candle = candles[0]  # abgeschlossene (nicht aktuell laufende) Kerze
         
         boxes[asset] = {
             "high": candle["high"],

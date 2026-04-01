@@ -275,7 +275,8 @@ class BitgetClient:
             accounts = data if isinstance(data, list) else []
             for acc in accounts:
                 if acc.get("marginCoin") == "USDT":
-                    return float(acc.get("available", 0))
+                    # equity = gesamtes Kapital inkl. offener Positionen (nicht nur available)
+                    return float(acc.get("equity") or acc.get("usdtEquity") or acc.get("available", 0))
         except Exception as e:
             print(f"⚠️  Balance-Fehler: {e}")
         return 0.0

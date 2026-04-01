@@ -268,8 +268,8 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "stop_loss": stop_loss,
         "take_profit": take_profit,
         "risk_usd": effective_risk,
-        "sl_placed": sl_result.success,
-        "tp_placed": tp_result.success,
+        "sl_placed": sl_ok,
+        "tp_placed": tp_ok,
     }
 
 
