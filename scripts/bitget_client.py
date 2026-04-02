@@ -342,6 +342,11 @@ class BitgetClient:
                 "symbol": self._symbol(coin),
             }, auth=True)
             return data.get("entrustedList", []) if isinstance(data, dict) else []
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return []  # Keine TPSL-Orders vorhanden – OK
+            print(f"⚠️  TPSL-Order Check Fehler: {e}")
+            return []
         except Exception as e:
             print(f"⚠️  TPSL-Order Check Fehler: {e}")
             return []
@@ -526,6 +531,11 @@ class BitgetClient:
                 "marginCoin": MARGIN_COIN,
             })
             return True
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return True  # Keine Orders vorhanden – OK
+            print(f"⚠️  Cancel TP/SL Fehler: {e}")
+            return False
         except Exception as e:
             print(f"⚠️  Cancel TP/SL Fehler: {e}")
             return False

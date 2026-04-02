@@ -40,18 +40,23 @@ def save_opening_range():
     print("=" * 60)
     
     for asset in assets:
-        # limit=2: candles sortiert oldest-first → candles[0] = abgeschlossene Kerze
-        # candles[1] = aktuell laufende Kerze (Range=0 → unbrauchbar)
-        candles = client.get_candles(asset, "15m", limit=2)
+        # limit=5: candles sortiert oldest-first
+        # candles[-1] = aktuell laufende Kerze (unbrauchbar)
+        # candles[-2] = zuletzt abgeschlossene Kerze
+        candles = client.get_candles(asset, "15m", limit=5)
         if len(candles) < 2:
             time.sleep(3)
-            candles = client.get_candles(asset, "15m", limit=2)
+            candles = client.get_candles(asset, "15m", limit=5)
 
         if len(candles) < 2:
             print(f"⚠️  No candles for {asset}")
             continue
 
-        candle = candles[0]  # abgeschlossene (nicht aktuell laufende) Kerze
+        candle = candles[-2]  # zuletzt abgeschlossene Kerze (nicht laufende)
+
+        if candle["high"] == candle["low"]:
+            print(f"⚠️  {asset}: Box Range $0.00 – übersprungen")
+            continue
         
         boxes[asset] = {
             "high": candle["high"],
