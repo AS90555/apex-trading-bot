@@ -131,12 +131,13 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     Platziere Breakout Trade mit Stop-Loss und Take-Profit.
     Returns: dict mit Trade-Ergebnis
     """
-    # Stop-Loss: andere Seite der Box + kleiner Puffer
-    puffer = BREAKOUT_THRESHOLD.get(asset, entry_price * 0.002)
+    # Stop-Loss: dynamischer Puffer basierend auf Box-Größe
+    box_range = box_high - box_low
+    sl_buffer = max(box_range * 0.1, entry_price * 0.001)  # 10% der Box oder 0.1% vom Preis
     if direction == "long":
-        stop_loss = box_low - puffer
+        stop_loss = box_low - sl_buffer
     else:
-        stop_loss = box_high + puffer
+        stop_loss = box_high + sl_buffer
 
     # Risk: live Balance verwenden falls übergeben, sonst Fallback
     effective_risk = risk_usd if risk_usd is not None else MAX_RISK_USD
@@ -151,14 +152,6 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     # Leverage setzen
     client.set_leverage(asset, LEVERAGE)
 
-    # Take-Profit: 2:1 Risk/Reward
-    risk_per_coin = abs(entry_price - stop_loss)
-    reward_per_coin = risk_per_coin * 2
-    if direction == "long":
-        take_profit = entry_price + reward_per_coin
-    else:
-        take_profit = entry_price - reward_per_coin
-
     is_buy = (direction == "long")
 
     # Orphan-Order Cleanup: verbleibende SL/TP-Orders vom letzten Trade löschen
@@ -166,14 +159,14 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     print(f"   🧹 Bereinige verbleibende TP/SL-Orders für {asset}...")
     client.cancel_tpsl_orders(asset)
 
-    # Market Order mit integriertem SL/TP (Preset als erste Absicherung)
+    # Market Order mit Preset-SL als Notfall-Netz (kein TP — wird separat als Split gesetzt)
     order_result = client.place_market_order(
         coin=asset,
         is_buy=is_buy,
         size=size,
         reduce_only=False,
         stop_loss=stop_loss,
-        take_profit=take_profit,
+        take_profit=None,
     )
 
     if not order_result.success:
@@ -181,23 +174,27 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
 
     actual_entry = order_result.avg_price
 
-    # SL/TP mit tatsächlichem Entry neu berechnen
+    # SL mit tatsächlichem Entry neu berechnen
     risk_actual = abs(actual_entry - stop_loss)
+
+    # Split Take-Profit: TP1 bei 1:1 (halbe Size), TP2 bei 3:1 (halbe Size)
     if direction == "long":
-        stop_loss = actual_entry - risk_actual
-        take_profit = actual_entry + risk_actual * 2
+        take_profit_1 = actual_entry + risk_actual * 1.0   # 1:1
+        take_profit_2 = actual_entry + risk_actual * 3.0   # 3:1
     else:
-        stop_loss = actual_entry + risk_actual
-        take_profit = actual_entry - risk_actual * 2
+        take_profit_1 = actual_entry - risk_actual * 1.0   # 1:1
+        take_profit_2 = actual_entry - risk_actual * 3.0   # 3:1
+
+    size_tp1 = round_size(asset, size / 2)
+    size_tp2 = round_size(asset, size - size_tp1)
 
     # Warten bis Position in API sichtbar ist (Bitget braucht 3-5s)
     if not DRY_RUN:
         time.sleep(5)
 
-    # Prüfen ob Preset-SL/TP vom Market-Order bereits aktiv sind
+    # Prüfen ob Preset-SL vom Market-Order bereits aktiv ist
     existing_tpsl = client.get_tpsl_orders(asset)
     sl_ok = any(o.get("planType") == "loss_plan" for o in existing_tpsl)
-    tp_ok = any(o.get("planType") == "profit_plan" for o in existing_tpsl)
 
     if sl_ok:
         print(f"   ✅ SL aktiv (Preset)")
@@ -209,15 +206,22 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         sl_ok = sl_r.success
         print(f"   {'✅' if sl_ok else '❌'} SL {'gesetzt' if sl_ok else 'FEHLER: ' + str(sl_r.error)}")
 
-    if tp_ok:
-        print(f"   ✅ TP aktiv (Preset)")
-    else:
-        tp_r = client.place_take_profit(asset, take_profit, size)
-        if not tp_r.success:
-            time.sleep(2)
-            tp_r = client.place_take_profit(asset, take_profit, size)
-        tp_ok = tp_r.success
-        print(f"   {'✅' if tp_ok else '❌'} TP {'gesetzt' if tp_ok else 'FEHLER: ' + str(tp_r.error)}")
+    # Split Take-Profit platzieren (TP1 + TP2)
+    tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1)
+    if not tp1_r.success:
+        time.sleep(2)
+        tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1)
+    tp1_ok = tp1_r.success
+    print(f"   {'✅' if tp1_ok else '❌'} TP1 1:1 @ ${take_profit_1:,.4f} (Size {size_tp1}) {'gesetzt' if tp1_ok else 'FEHLER: ' + str(tp1_r.error)}")
+
+    tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2)
+    if not tp2_r.success:
+        time.sleep(2)
+        tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2)
+    tp2_ok = tp2_r.success
+    print(f"   {'✅' if tp2_ok else '❌'} TP2 3:1 @ ${take_profit_2:,.4f} (Size {size_tp2}) {'gesetzt' if tp2_ok else 'FEHLER: ' + str(tp2_r.error)}")
+
+    tp_ok = tp1_ok and tp2_ok
 
     # KRITISCH: Wenn weder Preset noch separate SL/TP aktiv → Position sofort schließen
     if not sl_ok or not tp_ok:
@@ -251,10 +255,14 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "entry_price": actual_entry,
         "size": size,
         "stop_loss": stop_loss,
-        "take_profit": take_profit,
+        "take_profit_1": take_profit_1,
+        "take_profit_2": take_profit_2,
+        "size_tp1": size_tp1,
+        "size_tp2": size_tp2,
         "risk_usd": effective_risk,
-        "reward_usd": effective_risk * 2,
-        "ratio": "2:1",
+        "reward_usd_tp1": effective_risk * 1,
+        "reward_usd_tp2": effective_risk * 3,
+        "ratio": "Split 1:1 + 3:1",
         "leverage": LEVERAGE,
         "dry_run": DRY_RUN,
     })
@@ -266,7 +274,10 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "entry": actual_entry,
         "size": size,
         "stop_loss": stop_loss,
-        "take_profit": take_profit,
+        "take_profit_1": take_profit_1,
+        "take_profit_2": take_profit_2,
+        "size_tp1": size_tp1,
+        "size_tp2": size_tp2,
         "risk_usd": effective_risk,
         "sl_placed": sl_ok,
         "tp_placed": tp_ok,
@@ -307,6 +318,21 @@ def scan_for_breakouts(client):
         direction = check_breakout(asset, current_price, box["high"], box["low"])
 
         if direction:
+            # Candle-Close Confirmation: 5m-Kerze muss außerhalb der Box schließen
+            try:
+                candles_5m = client.get_candles(asset, interval="5m", limit=2)
+                if candles_5m and len(candles_5m) >= 2:
+                    last_closed = candles_5m[-2]
+                    candle_close = last_closed["close"]
+                    if direction == "long" and candle_close <= box["high"]:
+                        print(f"   ⏭️  {asset}: Mid-Price ueber Box, aber 5m-Candle Close <= Box High -- Skip")
+                        continue
+                    elif direction == "short" and candle_close >= box["low"]:
+                        print(f"   ⏭️  {asset}: Mid-Price unter Box, aber 5m-Candle Close >= Box Low -- Skip")
+                        continue
+            except Exception as e:
+                print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
+
             return {
                 "asset": asset,
                 "direction": direction,
@@ -418,7 +444,8 @@ def main():
             print(f"   Entry:       ${result['entry']:,.4f}")
             print(f"   Size:        {result['size']}")
             print(f"   Stop-Loss:   ${result['stop_loss']:,.4f}  (Risk: ${result['risk_usd']:.2f})")
-            print(f"   Take-Profit: ${result['take_profit']:,.4f}  (Reward: ${result['risk_usd'] * 2:.2f})")
+            print(f"   TP1 (1:1):   ${result['take_profit_1']:,.4f}  (Size {result['size_tp1']})")
+            print(f"   TP2 (3:1):   ${result['take_profit_2']:,.4f}  (Size {result['size_tp2']})")
             print(f"   Hebel:       {LEVERAGE}x")
 
             direction_emoji = "🟢" if result["direction"] == "long" else "🔴"
@@ -428,8 +455,10 @@ def main():
                 f"Entry: ${result['entry']:,.4f}\n"
                 f"Size: {result['size']}\n"
                 f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
-                f"Take-Profit: ${result['take_profit']:,.4f} (Reward: ${result['risk_usd'] * 2:.2f})\n"
-                f"Hebel: {LEVERAGE}x | R:R 2:1"
+                f"Split Take-Profit:\n"
+                f"  TP1 (1:1): ${result['take_profit_1']:,.4f} (Size {result['size_tp1']})\n"
+                f"  TP2 (3:1): ${result['take_profit_2']:,.4f} (Size {result['size_tp2']})\n"
+                f"Hebel: {LEVERAGE}x | R:R Split 1:1 + 3:1"
             )
             send_telegram_message(msg)
         else:
