@@ -158,6 +158,19 @@ class BitgetClient:
 
     # ─── HTTP Helpers ─────────────────────────────────────────────────────────
 
+    def _request_with_retry(self, method: str, url: str, **kwargs) -> requests.Response:
+        """HTTP Request mit Exponential Backoff bei 429 (max 3 Versuche)"""
+        delays = [5, 15, 30]
+        for attempt, delay in enumerate(delays, 1):
+            resp = requests.request(method, url, **kwargs)
+            if resp.status_code == 429:
+                print(f"⚠️  Bitget 429 – Rate Limit. Warte {delay}s (Versuch {attempt}/3)...")
+                time.sleep(delay)
+                continue
+            return resp
+        # Letzter Versuch ohne Abfangen
+        return requests.request(method, url, **kwargs)
+
     def _get(self, path: str, params: Dict = None, auth: bool = False) -> any:
         """GET Request – gibt data-Feld zurück"""
         query = ""
@@ -167,7 +180,7 @@ class BitgetClient:
         full_path = path + query
         headers = self._auth_headers("GET", full_path) if auth else {"locale": "en-US"}
 
-        resp = requests.get(BASE_URL + full_path, headers=headers, timeout=10)
+        resp = self._request_with_retry("GET", BASE_URL + full_path, headers=headers, timeout=10)
         resp.raise_for_status()
         data = resp.json()
 
@@ -184,7 +197,7 @@ class BitgetClient:
         body_str = json.dumps(body)
         headers = self._auth_headers("POST", path, body_str)
 
-        resp = requests.post(BASE_URL + path, data=body_str, headers=headers, timeout=10)
+        resp = self._request_with_retry("POST", BASE_URL + path, data=body_str, headers=headers, timeout=10)
         resp.raise_for_status()
         data = resp.json()
 
@@ -333,20 +346,17 @@ class BitgetClient:
             return []
 
     def get_tpsl_orders(self, coin: str) -> List[Dict]:
-        """Gibt aktive TPSL-Orders für ein Asset zurück (Preset-Check)"""
+        """Gibt aktive Plan-Orders (SL/TP) für ein Asset zurück"""
         if self.dry_run:
             return []
         try:
-            data = self._get("/api/v2/mix/order/tpsl-pending", {
+            data = self._get("/api/v2/mix/order/orders-plan-pending", {
                 "productType": PRODUCT_TYPE,
                 "symbol": self._symbol(coin),
             }, auth=True)
-            return data.get("entrustedList", []) if isinstance(data, dict) else []
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                return []  # Keine TPSL-Orders vorhanden – OK
-            print(f"⚠️  TPSL-Order Check Fehler: {e}")
-            return []
+            if isinstance(data, dict):
+                return data.get("entrustedList", [])
+            return data if isinstance(data, list) else []
         except Exception as e:
             print(f"⚠️  TPSL-Order Check Fehler: {e}")
             return []
@@ -520,22 +530,40 @@ class BitgetClient:
             return OrderResult(success=False, error=str(e))
 
     def cancel_tpsl_orders(self, coin: str) -> bool:
-        """Storniere alle TP/SL Orders für ein Asset"""
+        """Storniere alle Plan-Orders (SL/TP) für ein Asset"""
         if self.dry_run:
             print(f"[DRY RUN] Cancel TP/SL für {coin}")
             return True
         try:
-            self._post("/api/v2/mix/order/cancel-all-plan-order", {
+            # Erst alle offenen Plan-Orders holen
+            data = self._get("/api/v2/mix/order/orders-plan-pending", {
+                "productType": PRODUCT_TYPE,
+                "symbol": self._symbol(coin),
+            }, auth=True)
+
+            if isinstance(data, dict):
+                orders = data.get("entrustedList", [])
+            elif isinstance(data, list):
+                orders = data
+            else:
+                orders = []
+
+            if not orders:
+                return True  # Keine Orders vorhanden – OK
+
+            order_id_list = [
+                {"orderId": o["orderId"], "clientOid": o.get("clientOid", "")}
+                for o in orders if o.get("orderId")
+            ]
+
+            self._post("/api/v2/mix/order/cancel-plan-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,
+                "orderIdList": order_id_list,
             })
+            print(f"   🧹 {len(order_id_list)} Plan-Orders storniert ({coin})")
             return True
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None and e.response.status_code == 404:
-                return True  # Keine Orders vorhanden – OK
-            print(f"⚠️  Cancel TP/SL Fehler: {e}")
-            return False
         except Exception as e:
             print(f"⚠️  Cancel TP/SL Fehler: {e}")
             return False
