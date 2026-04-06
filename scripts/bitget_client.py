@@ -31,10 +31,13 @@ MARGIN_COIN = "USDT"
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config"))
 try:
-    from bot_config import MARGIN_MODE, PRICE_DECIMALS
+    from bot_config import MARGIN_MODE, PRICE_DECIMALS, SIZE_DECIMALS
 except ImportError:
     MARGIN_MODE = "isolated"
     PRICE_DECIMALS = {"BTC": 1, "ETH": 2, "SOL": 3, "AVAX": 3, "XRP": 4}
+    SIZE_DECIMALS = {"BTC": 4, "ETH": 2, "SOL": 1, "AVAX": 1, "XRP": 0}
+
+MIN_TRADE_SIZE = {"BTC": 0.0001, "ETH": 0.01, "SOL": 0.1, "AVAX": 0.1, "XRP": 1}
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DIR = os.path.join(PROJECT_DIR, "config")
@@ -133,6 +136,16 @@ class BitgetClient:
 
     def _symbol(self, coin: str) -> str:
         return f"{coin.upper()}USDT"
+
+    def _format_price(self, coin: str, price: float) -> str:
+        """Format price with exact decimal places for Bitget API"""
+        p_dec = PRICE_DECIMALS.get(coin, 4)
+        return f"{round(price, p_dec):.{p_dec}f}"
+
+    def _format_size(self, coin: str, size: float) -> str:
+        """Format size with exact decimal places for Bitget API"""
+        s_dec = SIZE_DECIMALS.get(coin, 2)
+        return f"{round(size, s_dec):.{s_dec}f}"
 
     def _sign(self, timestamp: str, method: str, path: str, body: str = "") -> str:
         prehash = timestamp + method.upper() + path + body
@@ -452,18 +465,17 @@ class BitgetClient:
             "productType": PRODUCT_TYPE,
             "marginMode": MARGIN_MODE,
             "marginCoin": MARGIN_COIN,
-            "size": str(size),
+            "size": self._format_size(coin, size),
             "side": side,
             "tradeSide": trade_side,
             "orderType": "market",
             "force": "ioc",
         }
-        p_dec = PRICE_DECIMALS.get(coin, 4)
         if stop_loss:
-            body["presetStopLossPrice"] = str(round(stop_loss, p_dec))
+            body["presetStopLossPrice"] = self._format_price(coin, stop_loss)
             body["presetStopLossTriggerType"] = "mark_price"
         if take_profit:
-            body["presetStopSurplusPrice"] = str(round(take_profit, p_dec))
+            body["presetStopSurplusPrice"] = self._format_price(coin, take_profit)
             body["presetStopSurplusTriggerType"] = "mark_price"
 
         try:
@@ -492,18 +504,17 @@ class BitgetClient:
             return OrderResult(success=False, error=f"Keine offene Position für {coin}")
 
         hold_side = "long" if pos.size > 0 else "short"
-        p_dec = PRICE_DECIMALS.get(coin, 4)
         try:
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,
                 "planType": "loss_plan",
-                "triggerPrice": str(round(trigger_price, p_dec)),
+                "triggerPrice": self._format_price(coin, trigger_price),
                 "triggerType": "mark_price",
                 "executePrice": "0",
                 "holdSide": hold_side,
-                "size": str(size),
+                "size": self._format_size(coin, size),
             })
             return OrderResult(success=True, avg_price=trigger_price)
         except Exception as e:
@@ -521,18 +532,17 @@ class BitgetClient:
             return OrderResult(success=False, error=f"Keine offene Position für {coin}")
 
         hold_side = "long" if pos.size > 0 else "short"
-        p_dec = PRICE_DECIMALS.get(coin, 4)
         try:
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,
                 "planType": "profit_plan",
-                "triggerPrice": str(round(trigger_price, p_dec)),
+                "triggerPrice": self._format_price(coin, trigger_price),
                 "triggerType": "mark_price",
                 "executePrice": "0",
                 "holdSide": hold_side,
-                "size": str(size),
+                "size": self._format_size(coin, size),
             })
             return OrderResult(success=True, avg_price=trigger_price)
         except Exception as e:

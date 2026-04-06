@@ -40,36 +40,42 @@ def save_opening_range():
     print("=" * 60)
     
     for asset in assets:
-        # limit=5: candles sortiert oldest-first
-        # candles[-1] = aktuell laufende Kerze (unbrauchbar)
-        # candles[-2] = zuletzt abgeschlossene Kerze
-        candles = client.get_candles(asset, "15m", limit=5)
-        if len(candles) < 2:
-            time.sleep(3)
+        try:
+            # limit=5: candles sortiert oldest-first
+            # candles[-1] = aktuell laufende Kerze (unbrauchbar)
+            # candles[-2] = zuletzt abgeschlossene Kerze
             candles = client.get_candles(asset, "15m", limit=5)
+            if len(candles) < 2:
+                time.sleep(3)
+                candles = client.get_candles(asset, "15m", limit=5)
 
-        if len(candles) < 2:
-            print(f"⚠️  No candles for {asset}")
+            if len(candles) < 2:
+                print(f"⚠️  No candles for {asset}")
+                continue
+
+            candle = candles[-2]  # zuletzt abgeschlossene Kerze (nicht laufende)
+
+            if candle["high"] == candle["low"]:
+                print(f"⚠️  {asset}: Box Range $0.00 – übersprungen")
+                continue
+
+            boxes[asset] = {
+                "high": candle["high"],
+                "low": candle["low"],
+                "open": candle["open"],
+                "close": candle["close"],
+                "timestamp": datetime.now().isoformat()
+            }
+
+            print(f"\n📊 {asset}:")
+            print(f"   High: ${candle['high']:,.2f}")
+            print(f"   Low:  ${candle['low']:,.2f}")
+            print(f"   Range: ${candle['high'] - candle['low']:,.2f}")
+        except Exception as e:
+            print(f"⚠️  {asset}: Fehler beim Laden der Candles: {e}")
             continue
 
-        candle = candles[-2]  # zuletzt abgeschlossene Kerze (nicht laufende)
-
-        if candle["high"] == candle["low"]:
-            print(f"⚠️  {asset}: Box Range $0.00 – übersprungen")
-            continue
-        
-        boxes[asset] = {
-            "high": candle["high"],
-            "low": candle["low"],
-            "open": candle["open"],
-            "close": candle["close"],
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        print(f"\n📊 {asset}:")
-        print(f"   High: ${candle['high']:,.2f}")
-        print(f"   Low:  ${candle['low']:,.2f}")
-        print(f"   Range: ${candle['high'] - candle['low']:,.2f}")
+        time.sleep(1)  # Rate Limit Schutz
     
     # Save
     os.makedirs(os.path.dirname(BOXES_FILE), exist_ok=True)

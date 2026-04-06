@@ -34,7 +34,10 @@ DATA_DIR = os.path.join(PROJECT_DIR, "data")
 # ── App + CORS ────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": [
+    "https://apex-dashboard-omega.vercel.app",
+    "http://localhost:3000",
+]}}, supports_credentials=True)
 
 # Client wird lazy initialisiert (vermeidet Crash beim Import ohne Credentials)
 _client = None
