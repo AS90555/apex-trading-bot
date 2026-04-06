@@ -59,6 +59,13 @@ BREAKOUT_THRESHOLD = {  # Mindestdistanz für Breakout-Erkennung
     "AVAX": 0.15,       # $0.15 über/unter Box
     "XRP":  0.005,      # $0.005 über/unter Box
 }
+MIN_BOX_RANGE = {       # Mindest-Kerzenbreite für gültige ORB-Box (15m-Candle)
+    "ETH":  1.0,        # $1.00 – unter 0.05% Range ist kein ORB
+    "SOL":  0.10,       # $0.10
+    "AVAX": 0.04,       # $0.04
+    "XRP":  0.003,      # $0.003
+}
+MAX_BOX_AGE_MIN = 120   # Box maximal 2h alt (verhindert Vortagsdaten)
 
 # WEEKEND MOMENTUM
 

@@ -24,7 +24,8 @@ sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
     from bot_config import (
         DRY_RUN, CAPITAL, MAX_RISK_PCT, ASSET_PRIORITY,
-        BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS, DRAWDOWN_KILL_PCT
+        BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS, DRAWDOWN_KILL_PCT,
+        MIN_BOX_RANGE, MAX_BOX_AGE_MIN
     )
 except ImportError:
     DRY_RUN = True
@@ -35,6 +36,8 @@ except ImportError:
     LEVERAGE = 5
     SIZE_DECIMALS = {"ETH": 2, "SOL": 1, "AVAX": 1, "XRP": 0}
     DRAWDOWN_KILL_PCT = 0.50
+    MIN_BOX_RANGE = {"ETH": 1.0, "SOL": 0.10, "AVAX": 0.04, "XRP": 0.003}
+    MAX_BOX_AGE_MIN = 120
 
 MAX_RISK_USD = CAPITAL * MAX_RISK_PCT
 
@@ -296,7 +299,7 @@ def get_risk_usd(client):
 def scan_for_breakouts(client):
     """
     Scanne alle Assets auf Breakouts.
-    Skipped Assets mit offenen Positionen.
+    Skipped Assets mit offenen Positionen, zu alten Boxen oder zu kleiner Range.
     Returns: dict oder None
     """
     boxes = load_boxes()
@@ -305,6 +308,7 @@ def scan_for_breakouts(client):
 
     positions = client.get_positions()
     position_assets = [p.coin for p in positions]
+    now = datetime.now()
 
     for asset in ASSET_PRIORITY:
         if asset in position_assets:
@@ -314,6 +318,24 @@ def scan_for_breakouts(client):
             continue
 
         box = boxes[asset]
+
+        # Alters-Check: Box darf maximal MAX_BOX_AGE_MIN alt sein
+        try:
+            box_ts = datetime.fromisoformat(box["timestamp"])
+            age_min = (now - box_ts).total_seconds() / 60
+            if age_min > MAX_BOX_AGE_MIN:
+                print(f"   ⏭️  {asset}: Box {age_min:.0f} Min alt (Max {MAX_BOX_AGE_MIN} Min) – übersprungen")
+                continue
+        except (KeyError, ValueError):
+            pass  # Kein Timestamp → weitermachen (backwards compat)
+
+        # Range-Check: Box muss Mindestbreite haben
+        box_range = box["high"] - box["low"]
+        min_range = MIN_BOX_RANGE.get(asset, box["high"] * 0.0005)
+        if box_range < min_range:
+            print(f"   ⏭️  {asset}: Box Range ${box_range:.4f} zu klein (Min ${min_range:.4f}) – übersprungen")
+            continue
+
         current_price = client.get_price(asset)
         direction = check_breakout(asset, current_price, box["high"], box["low"])
 

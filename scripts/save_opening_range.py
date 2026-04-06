@@ -22,10 +22,11 @@ BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
 # Config laden
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
-    from bot_config import DRY_RUN, ASSETS
+    from bot_config import DRY_RUN, ASSETS, MIN_BOX_RANGE
 except ImportError:
     DRY_RUN = True
     ASSETS = ["ETH", "SOL", "AVAX", "XRP"]
+    MIN_BOX_RANGE = {"ETH": 1.0, "SOL": 0.10, "AVAX": 0.04, "XRP": 0.003}
 
 
 def save_opening_range():
@@ -55,8 +56,10 @@ def save_opening_range():
 
             candle = candles[-2]  # zuletzt abgeschlossene Kerze (nicht laufende)
 
-            if candle["high"] == candle["low"]:
-                print(f"⚠️  {asset}: Box Range $0.00 – übersprungen")
+            box_range = candle["high"] - candle["low"]
+            min_range = MIN_BOX_RANGE.get(asset, candle["high"] * 0.0005)
+            if box_range < min_range:
+                print(f"⚠️  {asset}: Box Range ${box_range:.4f} < Min ${min_range:.4f} – übersprungen")
                 continue
 
             boxes[asset] = {
