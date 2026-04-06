@@ -181,7 +181,8 @@ class BitgetClient:
         headers = self._auth_headers("GET", full_path) if auth else {"locale": "en-US"}
 
         resp = self._request_with_retry("GET", BASE_URL + full_path, headers=headers, timeout=10)
-        resp.raise_for_status()
+        if not resp.ok:
+            raise Exception(f"{resp.status_code} Client Error: {resp.reason} for url: {resp.url} | Body: {resp.text[:500]}")
         data = resp.json()
 
         if data.get("code") != "00000":
@@ -198,7 +199,8 @@ class BitgetClient:
         headers = self._auth_headers("POST", path, body_str)
 
         resp = self._request_with_retry("POST", BASE_URL + path, data=body_str, headers=headers, timeout=10)
-        resp.raise_for_status()
+        if not resp.ok:
+            raise Exception(f"{resp.status_code} Client Error: {resp.reason} for url: {resp.url} | Body: {resp.text[:500]}")
         data = resp.json()
 
         if data.get("code") != "00000":
@@ -456,8 +458,10 @@ class BitgetClient:
         }
         if stop_loss:
             body["presetStopLossPrice"] = str(round(stop_loss, 4))
+            body["presetStopLossTriggerType"] = "mark_price"
         if take_profit:
             body["presetStopSurplusPrice"] = str(round(take_profit, 4))
+            body["presetStopSurplusTriggerType"] = "mark_price"
 
         try:
             result = self._post("/api/v2/mix/order/place-order", body)
@@ -539,6 +543,7 @@ class BitgetClient:
             data = self._get("/api/v2/mix/order/orders-plan-pending", {
                 "productType": PRODUCT_TYPE,
                 "symbol": self._symbol(coin),
+                "limit": "50",
             }, auth=True)
 
             if isinstance(data, dict):
