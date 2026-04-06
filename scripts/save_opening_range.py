@@ -25,7 +25,7 @@ try:
     from bot_config import DRY_RUN, ASSETS
 except ImportError:
     DRY_RUN = True
-    ASSETS = ["ETH", "SOL", "AVAX"]
+    ASSETS = ["ETH", "SOL", "AVAX", "XRP"]
 
 
 def save_opening_range():

@@ -28,8 +28,8 @@ except ImportError:
     DRY_RUN = True
     CAPITAL = 50.0
     MAX_RISK_PCT = 0.02
-    ASSETS = ["ETH", "SOL", "AVAX"]
-    BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15}
+    ASSETS = ["ETH", "SOL", "AVAX", "XRP"]
+    BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15, "XRP": 0.005}
 
 BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")

@@ -27,17 +27,27 @@ MARGIN_MODE = "isolated"  # "isolated" (sicherer, klein Konto) oder "crossed"
 
 # BTC bei 50 USDT nicht handelbar (Mindestorder zu groß)
 # → ETH, SOL, AVAX verwenden
-ASSETS = ["ETH", "SOL", "AVAX"]
+ASSETS = ["ETH", "SOL", "AVAX", "XRP"]
 
 # Asset-Priorität für Breakout-Auswahl (höchste zuerst)
-ASSET_PRIORITY = ["ETH", "SOL", "AVAX"]
+ASSET_PRIORITY = ["ETH", "SOL", "AVAX", "XRP"]
 
-# Mindest-Dezimalstellen je Asset (Bitget szDecimals)
+# Dezimalstellen für Positionsgröße (Bitget volumePlace)
 SIZE_DECIMALS = {
-    "BTC":  3,
+    "BTC":  4,
     "ETH":  2,
     "SOL":  1,
-    "AVAX": 0,
+    "AVAX": 1,
+    "XRP":  0,
+}
+
+# Dezimalstellen für Preise (Bitget pricePlace)
+PRICE_DECIMALS = {
+    "BTC":  1,
+    "ETH":  2,
+    "SOL":  3,
+    "AVAX": 3,
+    "XRP":  4,
 }
 
 # ORB STRATEGIE
@@ -47,6 +57,7 @@ BREAKOUT_THRESHOLD = {  # Mindestdistanz für Breakout-Erkennung
     "ETH":  5.0,        # $5 über/unter Box
     "SOL":  0.30,       # $0.30 über/unter Box
     "AVAX": 0.15,       # $0.15 über/unter Box
+    "XRP":  0.005,      # $0.005 über/unter Box
 }
 
 # WEEKEND MOMENTUM

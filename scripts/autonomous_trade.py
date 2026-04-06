@@ -30,10 +30,10 @@ except ImportError:
     DRY_RUN = True
     CAPITAL = 50.0
     MAX_RISK_PCT = 0.02
-    ASSET_PRIORITY = ["ETH", "SOL", "AVAX"]
-    BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15}
+    ASSET_PRIORITY = ["ETH", "SOL", "AVAX", "XRP"]
+    BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15, "XRP": 0.005}
     LEVERAGE = 5
-    SIZE_DECIMALS = {"ETH": 2, "SOL": 1, "AVAX": 0}
+    SIZE_DECIMALS = {"ETH": 2, "SOL": 1, "AVAX": 1, "XRP": 0}
     DRAWDOWN_KILL_PCT = 0.50
 
 MAX_RISK_USD = CAPITAL * MAX_RISK_PCT

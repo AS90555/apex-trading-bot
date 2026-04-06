@@ -31,9 +31,10 @@ MARGIN_COIN = "USDT"
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config"))
 try:
-    from bot_config import MARGIN_MODE
+    from bot_config import MARGIN_MODE, PRICE_DECIMALS
 except ImportError:
     MARGIN_MODE = "isolated"
+    PRICE_DECIMALS = {"BTC": 1, "ETH": 2, "SOL": 3, "AVAX": 3, "XRP": 4}
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DIR = os.path.join(PROJECT_DIR, "config")
@@ -457,11 +458,12 @@ class BitgetClient:
             "orderType": "market",
             "force": "ioc",
         }
+        p_dec = PRICE_DECIMALS.get(coin, 4)
         if stop_loss:
-            body["presetStopLossPrice"] = str(round(stop_loss, 4))
+            body["presetStopLossPrice"] = str(round(stop_loss, p_dec))
             body["presetStopLossTriggerType"] = "mark_price"
         if take_profit:
-            body["presetStopSurplusPrice"] = str(round(take_profit, 4))
+            body["presetStopSurplusPrice"] = str(round(take_profit, p_dec))
             body["presetStopSurplusTriggerType"] = "mark_price"
 
         try:
@@ -490,13 +492,14 @@ class BitgetClient:
             return OrderResult(success=False, error=f"Keine offene Position für {coin}")
 
         hold_side = "long" if pos.size > 0 else "short"
+        p_dec = PRICE_DECIMALS.get(coin, 4)
         try:
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,
                 "planType": "loss_plan",
-                "triggerPrice": str(round(trigger_price, 4)),
+                "triggerPrice": str(round(trigger_price, p_dec)),
                 "triggerType": "mark_price",
                 "executePrice": "0",
                 "holdSide": hold_side,
@@ -518,13 +521,14 @@ class BitgetClient:
             return OrderResult(success=False, error=f"Keine offene Position für {coin}")
 
         hold_side = "long" if pos.size > 0 else "short"
+        p_dec = PRICE_DECIMALS.get(coin, 4)
         try:
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,
                 "planType": "profit_plan",
-                "triggerPrice": str(round(trigger_price, 4)),
+                "triggerPrice": str(round(trigger_price, p_dec)),
                 "triggerType": "mark_price",
                 "executePrice": "0",
                 "holdSide": hold_side,
