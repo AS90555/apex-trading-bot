@@ -152,6 +152,14 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     if size <= 0:
         return {"success": False, "error": "Berechnete Size zu klein"}
 
+    # Margin-Cap: max. 90% des Kontos als Margin (verhindert "Insufficient margin" bei Bitget)
+    balance_est = effective_risk / MAX_RISK_PCT
+    max_size_by_margin = (balance_est * 0.90 * LEVERAGE) / entry_price
+    max_size_by_margin = round_size(asset, max_size_by_margin)
+    if size > max_size_by_margin and max_size_by_margin > 0:
+        print(f"   ⚠️  Size {size} → {max_size_by_margin} gekappt (Margin-Limit 90%)")
+        size = max_size_by_margin
+
     # Leverage setzen
     client.set_leverage(asset, LEVERAGE)
 
