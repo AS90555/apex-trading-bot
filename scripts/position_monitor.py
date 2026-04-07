@@ -30,7 +30,6 @@ def load_state():
     """Load last known state"""
     if not os.path.exists(STATE_FILE):
         return {"last_position_count": 0, "last_check": None}
-    
     with open(STATE_FILE, 'r') as f:
         return json.load(f)
 
@@ -40,6 +39,28 @@ def save_state(state):
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     with open(STATE_FILE, 'w') as f:
         json.dump(state, f, indent=2)
+
+
+def get_total_trade_pnl(client, coin: str, opened_at_ms: int):
+    """Summiert P&L aller Fills seit Position-Eröffnung (TP1 + TP2/SL).
+    Returns: (total_pnl, exit_price, total_size)
+    """
+    fills = client.get_recent_fills(coin=coin, limit=20) if coin else client.get_recent_fills(limit=10)
+    total_pnl = 0.0
+    total_size = 0.0
+    exit_price = 0.0
+
+    for fill in fills:
+        fill_time = int(fill.get("cTime", 0))
+        if opened_at_ms and fill_time < opened_at_ms:
+            break  # ältere Fills gehören nicht zum aktuellen Trade
+        total_pnl += float(fill.get("profit", 0))
+        size = float(fill.get("baseVolume", fill.get("size", fill.get("fillSz", 0))))
+        total_size += size
+        if not exit_price:
+            exit_price = float(fill.get("price", 0))
+
+    return total_pnl, exit_price, total_size
 
 
 def send_telegram_notification(message):
@@ -87,90 +108,80 @@ def main():
     """Main monitoring logic"""
     client = BitgetClient(dry_run=DRY_RUN)
 
-    # Get current positions FIRST (fast check)
     positions = client.get_positions()
     current_count = len(positions)
-
-    # Load last state
     state = load_state()
     last_count = state.get("last_position_count", 0)
 
-    # Quick exit if no positions and wasn't tracking any
     if current_count == 0 and last_count == 0:
         print("\n⏸️  Keine Positionen - Monitor idle")
         return current_count
 
-    # Check if position was closed
+    new_state = {"last_position_count": current_count, "last_check": datetime.now().isoformat()}
+
     if last_count > 0 and current_count == 0:
+        # Position geschlossen — alle Fills seit Eröffnung summieren
+        tracked_coin = state.get("tracked_coin")
+        opened_at_ms = state.get("position_opened_at", 0)
+
         print("\n" + "=" * 60)
         print("🎯 POSITION GESCHLOSSEN!")
         print("=" * 60)
 
-        # Hole Fill-History über Bitget API
-        fills = client.get_recent_fills(limit=10)
+        total_pnl, exit_price, total_size = get_total_trade_pnl(client, tracked_coin, opened_at_ms)
+        coin = tracked_coin or "?"
 
-        if fills:
-            # Neuesten Fill nehmen
-            latest = fills[0]
-            coin = latest.get("symbol", "").replace("USDT", "")
-            exit_price = float(latest.get("price", 0))
-            base_vol = float(latest.get("baseVolume", 0))
-            size_val = float(latest.get("size", 0))
-            fill_sz = float(latest.get("fillSz", 0))
-            total_size = base_vol if base_vol > 0 else (size_val if size_val > 0 else fill_sz)
-            total_pnl = float(latest.get("profit", 0))
-
+        if exit_price:
             print(f"\n💰 FINAL RESULT:")
             print(f"   Asset: {coin}")
             print(f"   Exit:  ${exit_price:,.4f}")
-            print(f"   Size:  {total_size}")
+            print(f"   Size:  {total_size:.4f}")
             print(f"   P&L:   ${total_pnl:,.2f}")
 
             balance = client.get_balance()
             print(f"\nAktuelle Balance: ${balance:,.2f} USDT")
 
-            if total_pnl > 0:
-                emoji = "✅"
-                result_text = f"GEWINN: +${total_pnl:.2f}"
-            else:
-                emoji = "❌"
-                result_text = f"VERLUST: ${total_pnl:.2f}"
+            emoji = "✅" if total_pnl > 0 else "❌"
+            result_text = f"GEWINN: +${total_pnl:.2f}" if total_pnl > 0 else f"VERLUST: ${total_pnl:.2f}"
 
             message = (
                 f"🎯 APEX TRADE GESCHLOSSEN!\n\n"
                 f"{emoji} {result_text}\n\n"
                 f"Asset: {coin}\n"
                 f"Exit: ${exit_price:,.4f}\n"
-                f"Size: {total_size}\n\n"
+                f"Size: {total_size:.4f}\n\n"
                 f"💰 Neue Balance: ${balance:,.2f} USDT"
             )
             print(f"\n{emoji} {result_text}")
             send_telegram_notification(message)
             update_pnl_tracker(total_pnl)
-
         else:
             print("⚠️  Keine Fill-Daten verfügbar")
             send_telegram_notification("🎯 APEX: Position geschlossen, aber keine Trade-Details gefunden.")
 
     elif current_count > 0:
-        # Position still running
         pos = positions[0]
         print(f"\n✅ Position läuft weiter:")
-        print(f"   {pos.coin} {('LONG' if pos.size > 0 else 'SHORT')}")
+        print(f"   {pos.coin} {'LONG' if pos.size > 0 else 'SHORT'}")
         print(f"   P&L: ${pos.unrealized_pnl:.2f}")
+
+        # Position-Tracking: opened_at und coin merken für späteren P&L
+        if last_count == 0 or "position_opened_at" not in state:
+            new_state["position_opened_at"] = int(datetime.now().timestamp() * 1000)
+            new_state["tracked_coin"] = pos.coin
+        else:
+            new_state["position_opened_at"] = state.get("position_opened_at")
+            new_state["tracked_coin"] = state.get("tracked_coin", pos.coin)
     else:
         print("\n⏸️  Keine offenen Positionen")
-    
-    # Save new state
-    save_state({
-        "last_position_count": current_count,
-        "last_check": datetime.now().isoformat()
-    })
-    
+
+    save_state(new_state)
     return current_count
 
 
 if __name__ == "__main__":
+    from log_utils import setup_logging
+    setup_logging()
     try:
         count = main()
         print("NO_REPLY")

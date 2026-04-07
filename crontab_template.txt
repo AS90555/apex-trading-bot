@@ -13,20 +13,24 @@
 30 3 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py tokyo >> /root/apex-trading-bot/logs/tokyo.log 2>&1
 
 # ─── EU SESSION (Mo-Fr 08:30–10:30 Berlin) ───────────────────
+# Box: 09:15 speichert die abgeschlossene 09:00–09:15 Kerze (echter London Open)
 30 8 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py eu >> /root/apex-trading-bot/logs/eu.log 2>&1
-0  9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/eu.log 2>&1
-15 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+15 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/eu.log 2>&1
 30 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+45 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
 0  10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
 30 10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py eu >> /root/apex-trading-bot/logs/eu.log 2>&1
 
 # ─── USA SESSION (Mo-Fr 21:00–23:00 Berlin) ──────────────────
+# Box: 21:15 speichert die abgeschlossene 21:00–21:15 Kerze (echter NY Open)
 0  21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py us >> /root/apex-trading-bot/logs/us.log 2>&1
-30 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/us.log 2>&1
+15 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/us.log 2>&1
+30 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
 45 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
 0  22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
 15 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
 45 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
+55 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py us >> /root/apex-trading-bot/logs/us.log 2>&1
 0  23 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/daily_closeout.py >> /root/apex-trading-bot/logs/daily.log 2>&1
 
 # ─── POSITION MONITOR (alle 30 Min, Mo-So) ───────────────────

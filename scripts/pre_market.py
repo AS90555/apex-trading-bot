@@ -108,6 +108,8 @@ if __name__ == "__main__":
         print(f"Invalid session: {session}")
         sys.exit(1)
 
+    from log_utils import setup_logging
+    setup_logging()
     try:
         run_pre_market(session)
     except Exception as e:

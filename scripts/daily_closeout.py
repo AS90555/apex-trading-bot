@@ -126,6 +126,8 @@ def run_daily_closeout():
 
 
 if __name__ == "__main__":
+    from log_utils import setup_logging
+    setup_logging()
     try:
         run_daily_closeout()
     except Exception as e:

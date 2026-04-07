@@ -100,6 +100,8 @@ def save_opening_range():
 
 
 if __name__ == "__main__":
+    from log_utils import setup_logging
+    setup_logging()
     try:
         boxes = save_opening_range()
         print("NO_REPLY")

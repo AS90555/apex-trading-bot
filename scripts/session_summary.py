@@ -84,99 +84,40 @@ def check_breakout(asset, price, box_high, box_low):
     return None
 
 
-def get_session_breakouts(client):
-    boxes = load_boxes()
-    if not boxes:
-        return {}
-
-    breakouts = {}
-    for asset in ASSETS:
-        if asset not in boxes:
-            breakouts[asset] = {"status": "no_box", "direction": None}
-            continue
-
-        box = boxes[asset]
-        try:
-            current_price = client.get_price(asset)
-        except Exception:
-            breakouts[asset] = {"status": "error", "direction": None}
-            continue
-
-        direction = check_breakout(asset, current_price, box["high"], box["low"])
-        if direction:
-            breakout_size = abs(current_price - (box["high"] if direction == "long" else box["low"]))
-            breakouts[asset] = {
-                "status": "breakout",
-                "direction": direction,
-                "price": current_price,
-                "box_high": box["high"],
-                "box_low": box["low"],
-                "breakout_size": breakout_size,
-            }
-        else:
-            breakouts[asset] = {
-                "status": "no_breakout",
-                "direction": None,
-                "price": current_price,
-            }
-    return breakouts
-
-
 def format_summary(session):
     emoji = SESSION_EMOJIS.get(session, "📊")
     name = SESSION_NAMES.get(session, session.upper())
     dry_tag = " [DRY RUN]" if DRY_RUN else ""
 
     client = BitgetClient(dry_run=DRY_RUN)
-
     traded, trade_data = has_traded_in_session(session)
-    breakouts = get_session_breakouts(client)
-    equity = client.get_equity() or client.get_balance() or 0.0
+    equity = client.get_balance()
 
     lines = [
         f"{emoji} *{name} Session Abschluss*{dry_tag}",
         "",
     ]
 
-    # Breakout-Check
-    lines.append("*Breakout-Check:*")
-    any_breakout = False
-    for asset in ASSETS:
-        if asset not in breakouts:
-            lines.append(f"  • {asset}: ⚠️ Keine Box-Daten")
-            continue
-        b = breakouts[asset]
-        if b["status"] == "breakout":
-            any_breakout = True
-            direction_icon = "🟢" if b["direction"] == "long" else "🔴"
-            lines.append(f"  • {asset}: {direction_icon} *{b['direction'].upper()}* (${b['breakout_size']:.2f})")
-        elif b["status"] == "error":
-            lines.append(f"  • {asset}: ⚠️ Preis-Fehler")
-        else:
-            lines.append(f"  • {asset}: ✅ Kein Breakout")
-
-    lines.append("")
-
-    # Trade Status
+    # Trade Status — basiert auf Trade-Log, nicht auf aktuellem Marktpreis
     if traded:
         asset = trade_data.get("asset", "?")
         direction = trade_data.get("direction", "?").upper()
         entry = trade_data.get("entry_price", 0)
+        sl = trade_data.get("stop_loss", 0)
+        tp1 = trade_data.get("take_profit_1", 0)
         direction_icon = "🟢" if trade_data.get("direction") == "long" else "🔴"
         lines.append(f"*Trade:* ✅ {direction_icon} *{asset} {direction}* @ ${entry:,.4f}")
+        lines.append(f"  SL: ${sl:,.4f} | TP1: ${tp1:,.4f}")
     else:
-        if any_breakout:
-            positions = client.get_positions()
-            if positions:
-                pos = positions[0]
-                pos_dir = "LONG" if pos.size > 0 else "SHORT"
-                lines.append(f"*Trade:* ⏭️ Geskippt")
-                lines.append(f"*Grund:* Position offen ({pos.coin} {pos_dir})")
-            else:
-                lines.append(f"*Trade:* ❌ Nicht ausgeführt")
-                lines.append(f"*Grund:* Unbekannt – Script-Check nötig!")
+        positions = client.get_positions()
+        if positions:
+            pos = positions[0]
+            pos_dir = "LONG" if pos.size > 0 else "SHORT"
+            pnl_icon = "🟢" if pos.unrealized_pnl >= 0 else "🔴"
+            lines.append(f"*Trade:* ⏭️ Geskippt (Position offen)")
+            lines.append(f"  {pos.coin} {pos_dir} @ ${pos.entry_price:,.4f} {pnl_icon} ${pos.unrealized_pnl:+,.2f}")
         else:
-            lines.append(f"*Trade:* ✅ Korrekt geskippt (kein Breakout)")
+            lines.append(f"*Trade:* ✅ Kein Signal – kein Trade")
 
     lines.append("")
 
@@ -210,4 +151,6 @@ def main():
 
 
 if __name__ == "__main__":
+    from log_utils import setup_logging
+    setup_logging()
     main()

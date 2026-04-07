@@ -294,7 +294,7 @@ class BitgetClient:
     # ========================
 
     def get_balance(self) -> float:
-        """Verfügbares USDT-Guthaben im Futures-Konto"""
+        """Gesamte Equity (Available + Margin + Unrealized PnL) in USDT."""
         if not self.is_ready:
             return 0.0
         try:
@@ -304,27 +304,20 @@ class BitgetClient:
             accounts = data if isinstance(data, list) else []
             for acc in accounts:
                 if acc.get("marginCoin") == "USDT":
-                    # equity = gesamtes Kapital inkl. offener Positionen (nicht nur available)
-                    return float(acc.get("equity") or acc.get("usdtEquity") or acc.get("available", 0))
+                    # .get()-Kette statt 'or' — sonst wird 0.0 als falsy behandelt
+                    val = acc.get("equity")
+                    if val is None:
+                        val = acc.get("usdtEquity")
+                    if val is None:
+                        val = acc.get("available", 0)
+                    return float(val)
         except Exception as e:
             print(f"⚠️  Balance-Fehler: {e}")
         return 0.0
 
     def get_equity(self) -> float:
-        """Gesamte Equity (Available + Margin + Unrealized PnL)"""
-        if not self.is_ready:
-            return 0.0
-        try:
-            data = self._get("/api/v2/mix/account/accounts", {
-                "productType": PRODUCT_TYPE,
-            }, auth=True)
-            accounts = data if isinstance(data, list) else []
-            for acc in accounts:
-                if acc.get("marginCoin") == "USDT":
-                    return float(acc.get("equity", acc.get("usdtEquity", acc.get("available", 0))))
-        except Exception as e:
-            print(f"⚠️  Equity-Fehler: {e}")
-        return 0.0
+        """Alias für get_balance() — Equity = Balance inkl. offener Positionen."""
+        return self.get_balance()
 
     def get_positions(self) -> List[Position]:
         """Alle offenen Positionen"""
@@ -482,7 +475,16 @@ class BitgetClient:
             result = self._post("/api/v2/mix/order/place-order", body)
             order_id = result.get("orderId", "") if isinstance(result, dict) else ""
             time.sleep(0.5)  # kurz warten für Fill
-            fill_price = self.get_price(coin)
+            # Echten Fill-Preis aus Trade-History holen (genauer als Mark-Preis)
+            fill_price = 0.0
+            try:
+                fills = self.get_recent_fills(coin, limit=3)
+                if fills:
+                    fill_price = float(fills[0].get("price", 0))
+            except Exception:
+                pass
+            if not fill_price:
+                fill_price = self.get_price(coin)
             return OrderResult(
                 success=True,
                 order_id=order_id,
@@ -492,18 +494,20 @@ class BitgetClient:
         except Exception as e:
             return OrderResult(success=False, error=str(e))
 
-    def place_stop_loss(self, coin: str, trigger_price: float, size: float) -> OrderResult:
-        """Setze einen Stop-Loss für eine offene Position"""
+    def place_stop_loss(self, coin: str, trigger_price: float, size: float, hold_side: str = None) -> OrderResult:
+        """Setze einen Stop-Loss für eine offene Position.
+        hold_side: 'long' oder 'short' — wenn übergeben, wird get_positions() übersprungen.
+        """
         if self.dry_run:
             print(f"[DRY RUN] Stop-Loss: {coin} @ ${trigger_price:,.4f}")
             return OrderResult(success=True, avg_price=trigger_price)
 
-        positions = self.get_positions()
-        pos = next((p for p in positions if p.coin == coin), None)
-        if not pos:
-            return OrderResult(success=False, error=f"Keine offene Position für {coin}")
-
-        hold_side = "long" if pos.size > 0 else "short"
+        if not hold_side:
+            positions = self.get_positions()
+            pos = next((p for p in positions if p.coin == coin), None)
+            if not pos:
+                return OrderResult(success=False, error=f"Keine offene Position für {coin}")
+            hold_side = "long" if pos.size > 0 else "short"
         try:
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),
@@ -520,18 +524,20 @@ class BitgetClient:
         except Exception as e:
             return OrderResult(success=False, error=str(e))
 
-    def place_take_profit(self, coin: str, trigger_price: float, size: float) -> OrderResult:
-        """Setze einen Take-Profit für eine offene Position"""
+    def place_take_profit(self, coin: str, trigger_price: float, size: float, hold_side: str = None) -> OrderResult:
+        """Setze einen Take-Profit für eine offene Position.
+        hold_side: 'long' oder 'short' — wenn übergeben, wird get_positions() übersprungen.
+        """
         if self.dry_run:
             print(f"[DRY RUN] Take-Profit: {coin} @ ${trigger_price:,.4f}")
             return OrderResult(success=True, avg_price=trigger_price)
 
-        positions = self.get_positions()
-        pos = next((p for p in positions if p.coin == coin), None)
-        if not pos:
-            return OrderResult(success=False, error=f"Keine offene Position für {coin}")
-
-        hold_side = "long" if pos.size > 0 else "short"
+        if not hold_side:
+            positions = self.get_positions()
+            pos = next((p for p in positions if p.coin == coin), None)
+            if not pos:
+                return OrderResult(success=False, error=f"Keine offene Position für {coin}")
+            hold_side = "long" if pos.size > 0 else "short"
         try:
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),

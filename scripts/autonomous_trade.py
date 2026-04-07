@@ -45,6 +45,7 @@ MAX_RISK_USD = CAPITAL * MAX_RISK_PCT
 BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
 LOCK_FILE = os.path.join(DATA_DIR, "autonomous_trade.lock")
+HWM_FILE = os.path.join(DATA_DIR, "high_water_mark.json")
 
 
 def load_boxes():
@@ -164,6 +165,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     client.set_leverage(asset, LEVERAGE)
 
     is_buy = (direction == "long")
+    hold_side = "long" if is_buy else "short"
 
     # Orphan-Order Cleanup: verbleibende SL/TP-Orders vom letzten Trade löschen
     # (Bitget cancelt die Gegenseite nicht automatisch wenn TP/SL triggert)
@@ -210,54 +212,58 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     if sl_ok:
         print(f"   ✅ SL aktiv (Preset)")
     else:
-        sl_r = client.place_stop_loss(asset, stop_loss, size)
+        sl_r = client.place_stop_loss(asset, stop_loss, size, hold_side=hold_side)
         if not sl_r.success:
             time.sleep(2)
-            sl_r = client.place_stop_loss(asset, stop_loss, size)
+            sl_r = client.place_stop_loss(asset, stop_loss, size, hold_side=hold_side)
         sl_ok = sl_r.success
         print(f"   {'✅' if sl_ok else '❌'} SL {'gesetzt' if sl_ok else 'FEHLER: ' + str(sl_r.error)}")
 
     # Split Take-Profit platzieren (TP1 + TP2)
-    tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1)
+    tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1, hold_side=hold_side)
     if not tp1_r.success:
         time.sleep(2)
-        tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1)
+        tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1, hold_side=hold_side)
     tp1_ok = tp1_r.success
     print(f"   {'✅' if tp1_ok else '❌'} TP1 1:1 @ ${take_profit_1:,.4f} (Size {size_tp1}) {'gesetzt' if tp1_ok else 'FEHLER: ' + str(tp1_r.error)}")
 
-    tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2)
+    tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2, hold_side=hold_side)
     if not tp2_r.success:
         time.sleep(2)
-        tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2)
+        tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2, hold_side=hold_side)
     tp2_ok = tp2_r.success
     print(f"   {'✅' if tp2_ok else '❌'} TP2 3:1 @ ${take_profit_2:,.4f} (Size {size_tp2}) {'gesetzt' if tp2_ok else 'FEHLER: ' + str(tp2_r.error)}")
 
     tp_ok = tp1_ok and tp2_ok
 
-    # KRITISCH: Wenn weder Preset noch separate SL/TP aktiv → Position sofort schließen
-    if not sl_ok or not tp_ok:
-        print(f"\n🚨 KRITISCH: SL/TP nicht gesetzt (SL={sl_ok}, TP={tp_ok})")
-        print("   → Schließe Position sofort als Sicherheitsmaßnahme...")
-
+    # KRITISCH: Kein SL = kein Schutz → sofort schließen (TP1 vorher canceln!)
+    if not sl_ok:
+        print(f"\n🚨 KRITISCH: SL nicht gesetzt! Cancle TP-Orders und schließe Position...")
+        client.cancel_tpsl_orders(asset)
         close_result = client.place_market_order(
             coin=asset,
             is_buy=not is_buy,
             size=size,
             reduce_only=True,
         )
-
         alert_msg = (
             f"🚨 APEX NOTFALL-SCHLIESSUNG{' [DRY RUN]' if DRY_RUN else ''}\n\n"
-            f"{asset} {direction.upper()} geöffnet aber SL/TP NICHT gesetzt!\n"
-            f"SL={sl_ok} | TP={tp_ok}\n"
-            f"Position {'geschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
+            f"{asset} {direction.upper()} – SL konnte NICHT gesetzt werden!\n"
+            f"Position {'notgeschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
         )
         send_telegram_message(alert_msg)
+        return {"success": False, "error": "SL fehlgeschlagen – Position notgeschlossen"}
 
-        return {
-            "success": False,
-            "error": f"SL/TP fehlgeschlagen – Position notgeschlossen",
-        }
+    # TP unvollständig: SL ist aktiver Schutz → Warnung, Trade läuft weiter
+    if not tp_ok:
+        print(f"\n⚠️  TP unvollständig (TP1={tp1_ok}, TP2={tp2_ok}) – SL aktiv, Position läuft")
+        alert_msg = (
+            f"⚠️ APEX TP-Warnung{' [DRY RUN]' if DRY_RUN else ''}\n\n"
+            f"{asset} {direction.upper()} – TP nicht vollständig gesetzt\n"
+            f"TP1={'✅' if tp1_ok else '❌'} | TP2={'✅' if tp2_ok else '❌'}\n"
+            f"SL aktiv @ ${stop_loss:,.4f} – Position läuft weiter."
+        )
+        send_telegram_message(alert_msg)
 
     # Trade loggen (nur wenn SL + TP erfolgreich gesetzt)
     log_trade({
@@ -293,6 +299,23 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "sl_placed": sl_ok,
         "tp_placed": tp_ok,
     }
+
+
+def update_and_get_hwm(balance: float) -> float:
+    """Lädt High-Water-Mark, aktualisiert sie wenn Balance höher, gibt sie zurück."""
+    hwm = CAPITAL
+    if os.path.exists(HWM_FILE):
+        try:
+            with open(HWM_FILE) as f:
+                hwm = json.load(f).get("hwm", CAPITAL)
+        except (json.JSONDecodeError, OSError):
+            pass
+    if balance > hwm:
+        hwm = balance
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(HWM_FILE, "w") as f:
+            json.dump({"hwm": hwm, "updated": datetime.now().isoformat()}, f)
+    return hwm
 
 
 def get_risk_usd(client):
@@ -335,7 +358,8 @@ def scan_for_breakouts(client):
                 print(f"   ⏭️  {asset}: Box {age_min:.0f} Min alt (Max {MAX_BOX_AGE_MIN} Min) – übersprungen")
                 continue
         except (KeyError, ValueError):
-            pass  # Kein Timestamp → weitermachen (backwards compat)
+            print(f"   ⏭️  {asset}: Box ohne Timestamp – übersprungen (Sicherheit)")
+            continue
 
         # Range-Check: Box muss Mindestbreite haben
         box_range = box["high"] - box["low"]
@@ -440,17 +464,18 @@ def main():
         risk_usd, balance = get_risk_usd(client)
         print(f"\n💰 Balance: ${balance:.2f} USDT | Risk/Trade: ${risk_usd:.2f}")
 
-        # Kill-Switch: 50% Drawdown → keine neuen Trades
-        kill_threshold = CAPITAL * DRAWDOWN_KILL_PCT
+        # Kill-Switch: 50% Drawdown vom High-Water-Mark → keine neuen Trades
+        hwm = update_and_get_hwm(balance)
+        kill_threshold = hwm * (1 - DRAWDOWN_KILL_PCT)
         if balance < kill_threshold and not DRY_RUN:
             msg = (
                 f"🛑 APEX KILL-SWITCH AKTIV\n\n"
-                f"Balance ${balance:.2f} USDT unter {int(DRAWDOWN_KILL_PCT*100)}% "
-                f"von Startkapital (${CAPITAL:.0f} USDT)\n"
+                f"Balance ${balance:.2f} USDT – mehr als {int(DRAWDOWN_KILL_PCT*100)}% "
+                f"unter High-Water-Mark (${hwm:.2f} USDT)\n"
                 f"Schwelle: ${kill_threshold:.2f} USDT\n"
                 f"Keine neuen Trades bis manuell freigegeben."
             )
-            print(f"\n🛑 KILL-SWITCH: Balance ${balance:.2f} < ${kill_threshold:.2f} – Stop!")
+            print(f"\n🛑 KILL-SWITCH: Balance ${balance:.2f} < ${kill_threshold:.2f} (HWM ${hwm:.2f}) – Stop!")
             send_telegram_message(msg)
             print("NO_REPLY")
             return
@@ -504,6 +529,8 @@ def main():
 
 
 if __name__ == "__main__":
+    from log_utils import setup_logging
+    setup_logging()
     try:
         result = main()
         sys.exit(0)
