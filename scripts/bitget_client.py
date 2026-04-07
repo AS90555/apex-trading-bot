@@ -588,32 +588,40 @@ class BitgetClient:
             return OrderResult(success=False, error=str(e))
 
     def cancel_tpsl_orders(self, coin: str) -> bool:
-        """Storniere alle Plan-Orders (SL/TP) für ein Asset"""
+        """Storniere alle Plan-Orders (SL/TP) für ein Asset.
+
+        GET-Fehler (z.B. 400172 Parameter verification) = keine Orders vorhanden → True.
+        Nur ein POST-Cancel-Fehler ist ein echter Fehler → False.
+        """
         if self.dry_run:
             print(f"[DRY RUN] Cancel TP/SL für {coin}")
             return True
+
+        # Schritt 1: Bestehende Orders abfragen
+        orders = []
         try:
-            # Erst alle offenen SL/TP Plan-Orders holen
             data = self._get("/api/v2/mix/order/orders-plan-pending", {
                 "productType": PRODUCT_TYPE,
                 "symbol": self._symbol(coin),
             }, auth=True)
-
             if isinstance(data, dict):
                 orders = data.get("entrustedList", [])
             elif isinstance(data, list):
                 orders = data
-            else:
-                orders = []
+        except Exception as e:
+            # 400-Fehler = Bitget kennt keine Orders für dieses Symbol → sicher fortzufahren
+            print(f"   ℹ️  Plan-Order Abfrage fehlgeschlagen ({e}) – keine Orphans angenommen")
+            return True
 
-            if not orders:
-                return True  # Keine Orders vorhanden – OK
+        if not orders:
+            return True  # Keine Orders vorhanden – OK
 
+        # Schritt 2: Orders canceln (echter Fehler wenn das scheitert)
+        try:
             order_id_list = [
                 {"orderId": o["orderId"], "clientOid": o.get("clientOid", "")}
                 for o in orders if o.get("orderId")
             ]
-
             self._post("/api/v2/mix/order/cancel-plan-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
