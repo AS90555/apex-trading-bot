@@ -19,6 +19,7 @@
 30 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
 45 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
 0  10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+15 10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
 30 10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py eu >> /root/apex-trading-bot/logs/eu.log 2>&1
 
 # ─── USA SESSION (Mo-Fr 21:00–23:00 Berlin) ──────────────────

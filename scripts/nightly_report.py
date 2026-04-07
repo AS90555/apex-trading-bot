@@ -77,9 +77,9 @@ def filter_today(lines):
         elif not ts and result:
             result.append((None, line))  # Continuation-Zeile
 
-    # Fallback: keine Timestamps → alle Zeilen analysieren
+    # Fallback: keine Timestamps → nur letzte 60 Zeilen (= aktuelle Session)
     if not result:
-        return [(None, l) for l in lines]
+        return [(None, l) for l in lines[-60:]]
     return result
 
 

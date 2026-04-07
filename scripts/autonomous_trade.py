@@ -170,7 +170,10 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     # Orphan-Order Cleanup: verbleibende SL/TP-Orders vom letzten Trade löschen
     # (Bitget cancelt die Gegenseite nicht automatisch wenn TP/SL triggert)
     print(f"   🧹 Bereinige verbleibende TP/SL-Orders für {asset}...")
-    client.cancel_tpsl_orders(asset)
+    cancel_ok = client.cancel_tpsl_orders(asset)
+    if not cancel_ok and not DRY_RUN:
+        # Cancel schlug fehl → kurz warten bevor Market Order (API könnte überlastet sein)
+        time.sleep(3)
 
     # Market Order mit Preset-SL als Notfall-Netz (kein TP — wird separat als Split gesetzt)
     order_result = client.place_market_order(
@@ -368,7 +371,11 @@ def scan_for_breakouts(client):
             print(f"   ⏭️  {asset}: Box Range ${box_range:.4f} zu klein (Min ${min_range:.4f}) – übersprungen")
             continue
 
-        current_price = client.get_price(asset)
+        try:
+            current_price = client.get_price(asset)
+        except Exception as e:
+            print(f"   ⚠️  {asset}: Preisabfrage fehlgeschlagen ({e}) – übersprungen")
+            continue
         direction = check_breakout(asset, current_price, box["high"], box["low"])
 
         if direction:

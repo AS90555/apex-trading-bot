@@ -55,8 +55,8 @@ PRICE_DECIMALS = {
 MAX_SPREAD_PCT = 0.1    # Maximaler Spread in % (Validierungskriterium 5)
 BREAKOUT_THRESHOLD = {  # Mindestdistanz für Breakout-Erkennung
     "ETH":  5.0,        # $5 über/unter Box
-    "SOL":  0.30,       # $0.30 über/unter Box
-    "AVAX": 0.15,       # $0.15 über/unter Box
+    "SOL":  0.10,       # $0.10 über/unter Box (reduziert von $0.30 — war 250% der Box-Range)
+    "AVAX": 0.05,       # $0.05 über/unter Box (reduziert von $0.15 — war 250% der Box-Range)
     "XRP":  0.005,      # $0.005 über/unter Box
 }
 MIN_BOX_RANGE = {       # Mindest-Kerzenbreite für gültige ORB-Box (15m-Candle)
