@@ -315,9 +315,6 @@ class BitgetClient:
             print(f"⚠️  Balance-Fehler: {e}")
         return 0.0
 
-    def get_equity(self) -> float:
-        """Alias für get_balance() — Equity = Balance inkl. offener Positionen."""
-        return self.get_balance()
 
     def get_positions(self) -> List[Position]:
         """Alle offenen Positionen"""
@@ -615,29 +612,6 @@ class BitgetClient:
         if risk_per_unit == 0:
             return 0.0
         return risk_amount / risk_per_unit
-
-    def format_status(self) -> str:
-        """Formatierter Account-Status für Logs/Telegram"""
-        if not self.is_ready:
-            return "❌ API-Credentials nicht konfiguriert"
-
-        balance = self.get_balance()
-        positions = self.get_positions()
-        mode = "[DRY RUN] " if self.dry_run else ""
-
-        lines = [
-            f"{mode}💰 Balance: ${balance:,.2f} USDT",
-            f"📊 Positionen: {len(positions)}",
-        ]
-        for pos in positions:
-            pnl_emoji = "🟢" if pos.unrealized_pnl >= 0 else "🔴"
-            direction = "LONG" if pos.size > 0 else "SHORT"
-            lines.append(
-                f"   {pos.coin} {direction}: {abs(pos.size):.4f} "
-                f"@ ${pos.entry_price:,.4f} "
-                f"{pnl_emoji} ${pos.unrealized_pnl:+,.2f}"
-            )
-        return "\n".join(lines)
 
 
 # ========================

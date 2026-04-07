@@ -172,8 +172,14 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     print(f"   🧹 Bereinige verbleibende TP/SL-Orders für {asset}...")
     cancel_ok = client.cancel_tpsl_orders(asset)
     if not cancel_ok and not DRY_RUN:
-        # Cancel schlug fehl → kurz warten bevor Market Order (API könnte überlastet sein)
+        # Einmal retry nach 3s
         time.sleep(3)
+        cancel_ok = client.cancel_tpsl_orders(asset)
+    if not cancel_ok and not DRY_RUN:
+        alert = f"⚠️ APEX: TP/SL Cancel für {asset} fehlgeschlagen – Trade abgebrochen"
+        print(f"\n{alert}")
+        send_telegram_message(alert)
+        return {"success": False, "error": "Orphan-Order Cancel fehlgeschlagen"}
 
     # Market Order mit Preset-SL als Notfall-Netz (kein TP — wird separat als Split gesetzt)
     order_result = client.place_market_order(

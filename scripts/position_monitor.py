@@ -78,8 +78,11 @@ def update_pnl_tracker(pnl):
     if not os.path.exists(PNL_TRACKER_FILE):
         return
     
-    with open(PNL_TRACKER_FILE, 'r') as f:
-        tracker = json.load(f)
+    try:
+        with open(PNL_TRACKER_FILE, 'r') as f:
+            tracker = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return
     
     # Update realized P&L
     tracker["realized_pnl"] = tracker.get("realized_pnl", 0) + pnl
