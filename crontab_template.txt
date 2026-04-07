@@ -33,6 +33,9 @@
 55 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py us >> /root/apex-trading-bot/logs/us.log 2>&1
 0  23 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/daily_closeout.py >> /root/apex-trading-bot/logs/daily.log 2>&1
 
+# ─── NIGHTLY REPORT (täglich 01:30, alle Sessions abgeschlossen) ────────────
+30 1 * * *    cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/nightly_report.py >> /root/apex-trading-bot/logs/daily.log 2>&1
+
 # ─── POSITION MONITOR (alle 30 Min, Mo-So) ───────────────────
 */30 * * * *  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/position_monitor.py >> /root/apex-trading-bot/logs/monitor.log 2>&1
 
