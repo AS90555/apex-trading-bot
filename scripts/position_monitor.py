@@ -26,6 +26,9 @@ except ImportError:
     DRY_RUN = True
 
 
+TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
+
+
 def load_state():
     """Load last known state"""
     if not os.path.exists(STATE_FILE):
@@ -71,6 +74,143 @@ def send_telegram_notification(message):
         send_telegram_message(message)
     except Exception as e:
         print(f"⚠️  Telegram notification error: {e}")
+
+
+def load_last_trade(coin: str) -> dict:
+    """Lade den letzten Trade für ein Asset aus trades.json"""
+    if not os.path.exists(TRADES_FILE):
+        return {}
+    try:
+        with open(TRADES_FILE, 'r') as f:
+            trades = json.load(f)
+        for t in reversed(trades):
+            if t.get("asset") == coin:
+                return t
+    except (json.JSONDecodeError, OSError):
+        pass
+    return {}
+
+
+def check_and_apply_break_even(client, pos, state: dict) -> bool:
+    """
+    Prüft ob Break-Even-Bedingung erreicht ist (1R Gewinn) und verschiebt SL.
+
+    Long:  neuer SL = entry + fee_buffer (SL geht hoch)
+    Short: neuer SL = entry - fee_buffer (SL geht runter)
+
+    Returns True wenn BE angewendet wurde, sonst False.
+    """
+    if state.get("be_applied"):
+        return False  # Bereits angewendet
+
+    last_trade = load_last_trade(pos.coin)
+    if not last_trade:
+        return False
+
+    entry_price = float(last_trade.get("entry_price", 0))
+    original_sl = float(last_trade.get("stop_loss", 0))
+    if not entry_price or not original_sl:
+        return False
+
+    risk_per_unit = abs(entry_price - original_sl)  # 1R in Preis-Einheiten
+    if risk_per_unit == 0:
+        return False
+
+    is_long = pos.size > 0
+
+    # Preis: API bevorzugt, Fallback auf unrealized_pnl-Berechnung
+    try:
+        current_price = client.get_price(pos.coin)
+    except Exception as e:
+        print(f"   ⚠️  Preisabfrage fehlgeschlagen ({e}) – Fallback auf Position-Daten")
+        current_price = pos.entry_price + (pos.unrealized_pnl / abs(pos.size)) if abs(pos.size) > 0 else entry_price
+
+    # 1R-Bedingung prüfen
+    if is_long:
+        be_triggered = current_price >= entry_price + risk_per_unit
+    else:
+        be_triggered = current_price <= entry_price - risk_per_unit
+
+    if not be_triggered:
+        return False
+
+    # Break-Even SL berechnen (Entry + kleiner Fee-Buffer)
+    fee_buffer = risk_per_unit * 0.05  # 5% des initialen Risikoabstands
+    if is_long:
+        new_sl = entry_price + fee_buffer
+        # Nur sinnvoll wenn neuer SL über altem SL liegt
+        if new_sl <= original_sl:
+            return False
+    else:
+        new_sl = entry_price - fee_buffer
+        if new_sl >= original_sl:
+            return False
+
+    hold_side = "long" if is_long else "short"
+    direction_str = "LONG" if is_long else "SHORT"
+    print(f"\n🛡️  Break-Even Trigger: {pos.coin} {direction_str}")
+    print(f"   1R erreicht: Preis ${current_price:,.4f} vs. 1R-Level ${entry_price + (risk_per_unit if is_long else -risk_per_unit):,.4f}")
+    print(f"   SL-Verschiebung: ${original_sl:,.4f} → ${new_sl:,.4f} (Entry + Fee-Buffer)")
+
+    # Alten SL canceln und neuen setzen
+    cancel_ok = client.cancel_tpsl_orders(pos.coin)
+    if not cancel_ok:
+        print(f"   ❌ Cancel fehlgeschlagen – BE-SL nicht gesetzt")
+        return False
+
+    sl_result = client.place_stop_loss(pos.coin, new_sl, abs(pos.size), hold_side=hold_side)
+    if not sl_result.success:
+        print(f"   ❌ BE-SL setzen fehlgeschlagen: {sl_result.error}")
+        send_telegram_notification(
+            f"⚠️ APEX: Break-Even SL FEHLER\n{pos.coin} {direction_str}\n"
+            f"Cancel OK, aber neuer SL @ ${new_sl:,.4f} konnte nicht gesetzt werden!\n"
+            f"Manuell handeln!"
+        )
+        return False
+
+    print(f"   ✅ BE-SL gesetzt @ ${new_sl:,.4f}")
+    send_telegram_notification(
+        f"🛡️ APEX: Break-Even aktiv\n\n"
+        f"{pos.coin} {direction_str}\n"
+        f"1R erreicht – SL auf ${new_sl:,.4f} nachgezogen\n"
+        f"(Entry: ${entry_price:,.4f} | Buffer: ${fee_buffer:,.4f})"
+    )
+    return True
+
+
+def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_applied: bool):
+    """Schreibt Exit-Daten zurück in das passende Trade-Entry in trades.json."""
+    if not os.path.exists(TRADES_FILE):
+        return
+    try:
+        with open(TRADES_FILE, 'r') as f:
+            trades = json.load(f)
+
+        for i in range(len(trades) - 1, -1, -1):
+            t = trades[i]
+            if t.get("asset") == coin and not t.get("exit_timestamp"):
+                risk_usd = t.get("risk_usd") or 1.0
+                pnl_r = round(total_pnl / risk_usd, 2) if risk_usd else 0.0
+                exit_reason = "WIN" if total_pnl > 0 else "LOSS"
+                if be_applied and total_pnl >= 0:
+                    exit_reason = "BE_WIN" if total_pnl > 0 else "BE_BREAKEVEN"
+
+                trades[i]["exit_timestamp"] = datetime.now().isoformat()
+                trades[i]["exit_price"] = exit_price
+                trades[i]["exit_pnl_usd"] = round(total_pnl, 4)
+                trades[i]["exit_pnl_r"] = pnl_r
+                trades[i]["exit_reason"] = exit_reason
+                trades[i]["be_applied"] = be_applied
+                break
+
+        # Atomares Schreiben: tmp-Datei + rename verhindert korrupte JSON bei Absturz
+        tmp_file = TRADES_FILE + ".tmp"
+        with open(tmp_file, 'w') as f:
+            json.dump(trades, f, indent=2)
+        os.replace(tmp_file, TRADES_FILE)
+        print(f"   📝 Trade-Exit geloggt: {coin} | PnL ${total_pnl:.2f} ({pnl_r}R) | {exit_reason}")
+    except Exception as e:
+        print(f"⚠️  Trade-Exit Logging Fehler: {e}")
 
 
 def update_pnl_tracker(pnl):
@@ -159,6 +299,10 @@ def main():
             print(f"\n{emoji} {result_text}")
             send_telegram_notification(message)
             update_pnl_tracker(total_pnl)
+
+            # Exit-Daten zurück in trades.json schreiben
+            be_was_applied = state.get("be_applied", False)
+            update_trade_with_exit(coin, total_pnl, exit_price, be_was_applied)
         else:
             print("⚠️  Keine Fill-Daten verfügbar")
             send_telegram_notification("🎯 APEX: Position geschlossen, aber keine Trade-Details gefunden.")
@@ -173,9 +317,16 @@ def main():
         if last_count == 0 or "position_opened_at" not in state:
             new_state["position_opened_at"] = int(datetime.now().timestamp() * 1000)
             new_state["tracked_coin"] = pos.coin
+            new_state["be_applied"] = False  # Reset BE-Flag bei neuer Position
         else:
             new_state["position_opened_at"] = state.get("position_opened_at")
             new_state["tracked_coin"] = state.get("tracked_coin", pos.coin)
+            new_state["be_applied"] = state.get("be_applied", False)
+
+        # Break-Even Check: SL auf Entry verschieben wenn 1R Gewinn erreicht
+        be_applied = check_and_apply_break_even(client, pos, new_state)
+        if be_applied:
+            new_state["be_applied"] = True
     else:
         print("\n⏸️  Keine offenen Positionen")
 
@@ -194,5 +345,9 @@ if __name__ == "__main__":
         print(f"\n💥 ERROR: {e}")
         import traceback
         traceback.print_exc()
+        try:
+            send_telegram_notification(f"💥 APEX position_monitor.py ERROR: {e}")
+        except Exception:
+            pass
         print("NO_REPLY")
         sys.exit(1)

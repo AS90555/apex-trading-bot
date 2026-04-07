@@ -550,6 +550,43 @@ class BitgetClient:
         except Exception as e:
             return OrderResult(success=False, error=str(e))
 
+    def place_trailing_stop(self, coin: str, callback_ratio: float, activation_price: float, size: float, hold_side: str = None) -> OrderResult:
+        """
+        Nativer Bitget Trailing Stop (moving_plan).
+
+        Läuft exchange-side – überlebt Server-Abstürze ohne Cancel-Replace-Lücken.
+
+        callback_ratio:   Trail-Abstand als Dezimalzahl (z.B. 0.015 = 1.5% vom Peak)
+        activation_price: Mark-Preis ab dem der Trailing Stop aktiviert wird
+        size:             Positionsgröße die geschlossen werden soll
+        """
+        if self.dry_run:
+            print(f"[DRY RUN] Trailing Stop: {coin} | Callback {callback_ratio*100:.2f}% | Aktivierung @ ${activation_price:,.4f} | Size {size}")
+            return OrderResult(success=True, avg_price=activation_price)
+
+        if not hold_side:
+            positions = self.get_positions()
+            pos = next((p for p in positions if p.coin == coin), None)
+            if not pos:
+                return OrderResult(success=False, error=f"Keine offene Position für {coin}")
+            hold_side = "long" if pos.size > 0 else "short"
+
+        try:
+            self._post("/api/v2/mix/order/place-tpsl-order", {
+                "symbol": self._symbol(coin),
+                "productType": PRODUCT_TYPE,
+                "marginCoin": MARGIN_COIN,
+                "planType": "moving_plan",
+                "callbackRatio": f"{callback_ratio:.4f}",
+                "triggerPrice": self._format_price(coin, activation_price),
+                "triggerType": "mark_price",
+                "holdSide": hold_side,
+                "size": self._format_size(coin, size),
+            })
+            return OrderResult(success=True, avg_price=activation_price)
+        except Exception as e:
+            return OrderResult(success=False, error=str(e))
+
     def cancel_tpsl_orders(self, coin: str) -> bool:
         """Storniere alle Plan-Orders (SL/TP) für ein Asset"""
         if self.dry_run:

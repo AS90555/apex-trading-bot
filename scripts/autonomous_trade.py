@@ -107,8 +107,10 @@ def log_trade(trade_data):
         "session": get_current_session(),
     })
 
-    with open(TRADES_FILE, "w") as f:
+    tmp_file = TRADES_FILE + ".tmp"
+    with open(tmp_file, "w") as f:
         json.dump(trades, f, indent=2)
+    os.replace(tmp_file, TRADES_FILE)
 
 
 def check_breakout(asset, current_price, box_high, box_low):
@@ -130,7 +132,7 @@ def round_size(asset, size):
     return round(size, decimals)
 
 
-def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_low, risk_usd=None):
+def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_low, risk_usd=None, context=None):
     """
     Platziere Breakout Trade mit Stop-Loss und Take-Profit.
     Returns: dict mit Trade-Ergebnis
@@ -199,13 +201,17 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     # SL mit tatsächlichem Entry neu berechnen
     risk_actual = abs(actual_entry - stop_loss)
 
-    # Split Take-Profit: TP1 bei 1:1 (halbe Size), TP2 bei 3:1 (halbe Size)
+    # TP1: statisch bei 1:1 (halbe Size) – gesicherter Teilgewinn
+    # TP2: nativer Trailing Stop, aktiviert bei 2R – folgt dem Trend dynamisch
     if direction == "long":
-        take_profit_1 = actual_entry + risk_actual * 1.0   # 1:1
-        take_profit_2 = actual_entry + risk_actual * 3.0   # 3:1
+        take_profit_1     = actual_entry + risk_actual * 1.0  # 1:1 statisch
+        trailing_activation = actual_entry + risk_actual * 2.0  # 2:1 Aktivierung Trailing
     else:
-        take_profit_1 = actual_entry - risk_actual * 1.0   # 1:1
-        take_profit_2 = actual_entry - risk_actual * 3.0   # 3:1
+        take_profit_1     = actual_entry - risk_actual * 1.0
+        trailing_activation = actual_entry - risk_actual * 2.0
+
+    # Trail-Abstand: 0.5R als Prozentsatz (für beide Richtungen gleich)
+    trail_pct = (risk_actual * 0.5) / actual_entry
 
     size_tp1 = round_size(asset, size / 2)
     size_tp2 = round_size(asset, size - size_tp1)
@@ -236,12 +242,12 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     tp1_ok = tp1_r.success
     print(f"   {'✅' if tp1_ok else '❌'} TP1 1:1 @ ${take_profit_1:,.4f} (Size {size_tp1}) {'gesetzt' if tp1_ok else 'FEHLER: ' + str(tp1_r.error)}")
 
-    tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2, hold_side=hold_side)
+    tp2_r = client.place_trailing_stop(asset, trail_pct, trailing_activation, size_tp2, hold_side=hold_side)
     if not tp2_r.success:
         time.sleep(2)
-        tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2, hold_side=hold_side)
+        tp2_r = client.place_trailing_stop(asset, trail_pct, trailing_activation, size_tp2, hold_side=hold_side)
     tp2_ok = tp2_r.success
-    print(f"   {'✅' if tp2_ok else '❌'} TP2 3:1 @ ${take_profit_2:,.4f} (Size {size_tp2}) {'gesetzt' if tp2_ok else 'FEHLER: ' + str(tp2_r.error)}")
+    print(f"   {'✅' if tp2_ok else '❌'} TP2 Trailing @ Aktivierung ${trailing_activation:,.4f} | Trail {trail_pct*100:.2f}% (Size {size_tp2}) {'gesetzt' if tp2_ok else 'FEHLER: ' + str(tp2_r.error)}")
 
     tp_ok = tp1_ok and tp2_ok
 
@@ -275,21 +281,37 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         send_telegram_message(alert_msg)
 
     # Trade loggen (SL ist gesetzt; TP kann partiell fehlen aber Trade läuft)
+    ctx = context or {}
     log_trade({
+        # Entry
         "asset": asset,
         "direction": direction,
         "entry_price": actual_entry,
         "size": size,
+        "leverage": LEVERAGE,
+        "session": get_current_session(),
+        # Exit-Planung
         "stop_loss": stop_loss,
         "take_profit_1": take_profit_1,
-        "take_profit_2": take_profit_2,
+        "trailing_activation": trailing_activation,
+        "trail_pct": round(trail_pct, 6),
         "size_tp1": size_tp1,
         "size_tp2": size_tp2,
+        # Risiko
         "risk_usd": effective_risk,
-        "reward_usd_tp1": effective_risk * 1,
-        "reward_usd_tp2": effective_risk * 3,
-        "ratio": "Split 1:1 + 3:1",
-        "leverage": LEVERAGE,
+        "risk_per_unit": round(abs(actual_entry - stop_loss), 6),
+        "ratio": "Split 1:1 + Trailing(2R, 0.5R-Offset)",
+        # Box-Kontext
+        "box_high": ctx.get("box_high", box_high),
+        "box_low": ctx.get("box_low", box_low),
+        "box_range": ctx.get("box_range", box_high - box_low),
+        "box_age_min": ctx.get("box_age_min"),
+        "breakout_distance": ctx.get("breakout_distance"),
+        # Volume-Kontext (für spätere Analyse)
+        "volume_at_breakout": ctx.get("volume_at_breakout"),
+        "volume_avg_20": ctx.get("volume_avg_20"),
+        "volume_ratio": ctx.get("volume_ratio"),
+        # Meta
         "dry_run": DRY_RUN,
     })
 
@@ -301,7 +323,8 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "size": size,
         "stop_loss": stop_loss,
         "take_profit_1": take_profit_1,
-        "take_profit_2": take_profit_2,
+        "trailing_activation": trailing_activation,
+        "trail_pct": trail_pct,
         "size_tp1": size_tp1,
         "size_tp2": size_tp2,
         "risk_usd": effective_risk,
@@ -322,8 +345,10 @@ def update_and_get_hwm(balance: float) -> float:
     if balance > hwm:
         hwm = balance
         os.makedirs(DATA_DIR, exist_ok=True)
-        with open(HWM_FILE, "w") as f:
+        tmp_file = HWM_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
             json.dump({"hwm": hwm, "updated": datetime.now().isoformat()}, f)
+        os.replace(tmp_file, HWM_FILE)
     return hwm
 
 
@@ -385,9 +410,13 @@ def scan_for_breakouts(client):
         direction = check_breakout(asset, current_price, box["high"], box["low"])
 
         if direction:
-            # Candle-Close Confirmation: 5m-Kerze muss außerhalb der Box schließen
+            # Candle-Close Confirmation + Volume-Daten für Logging
+            # 21 Candles: 20 für Volume-Durchschnitt + 1 aktuelle (nicht abgeschlossen)
+            volume_at_breakout = 0.0
+            volume_avg_20 = 0.0
+            volume_ratio = 0.0
             try:
-                candles_5m = client.get_candles(asset, interval="5m", limit=2)
+                candles_5m = client.get_candles(asset, interval="5m", limit=21)
                 if candles_5m and len(candles_5m) >= 2:
                     last_closed = candles_5m[-2]
                     candle_close = last_closed["close"]
@@ -397,16 +426,29 @@ def scan_for_breakouts(client):
                     elif direction == "short" and candle_close >= box["low"]:
                         print(f"   ⏭️  {asset}: Mid-Price unter Box, aber 5m-Candle Close >= Box Low -- Skip")
                         continue
+
+                    # Volume-Berechnung (nur für Logging, kein Filter)
+                    volume_at_breakout = last_closed.get("volume", 0.0)
+                    past_volumes = [c["volume"] for c in candles_5m[:-2] if c.get("volume", 0) > 0]
+                    if past_volumes:
+                        volume_avg_20 = sum(past_volumes) / len(past_volumes)
+                        volume_ratio = volume_at_breakout / volume_avg_20 if volume_avg_20 > 0 else 0.0
             except Exception as e:
                 print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
 
+            box_range = box["high"] - box["low"]
             return {
                 "asset": asset,
                 "direction": direction,
                 "current_price": current_price,
                 "box_high": box["high"],
                 "box_low": box["low"],
-                "breakout_size": abs(current_price - (box["high"] if direction == "long" else box["low"])),
+                "box_range": box_range,
+                "box_age_min": round(age_min, 1),
+                "breakout_distance": abs(current_price - (box["high"] if direction == "long" else box["low"])),
+                "volume_at_breakout": round(volume_at_breakout, 2),
+                "volume_avg_20": round(volume_avg_20, 2),
+                "volume_ratio": round(volume_ratio, 3),
             }
 
     return None
@@ -450,15 +492,19 @@ def main():
 
         client = BitgetClient(dry_run=DRY_RUN)
 
-        # Offene Positionen
-        positions = client.get_positions()
-        if positions:
-            pos_list = ", ".join([f"{p.coin} {'LONG' if p.size > 0 else 'SHORT'}" for p in positions])
-            print(f"\n📊 Bestehende Positionen: {pos_list}")
-
-        # Breakout suchen
+        # Breakout suchen (scan_for_breakouts holt intern get_positions)
         print("\n🔍 Suche Breakouts...")
         breakout = scan_for_breakouts(client)
+
+        # Offene Positionen aus dem Scan-Ergebnis ableiten (kein extra API-Call)
+        if not breakout:
+            try:
+                positions = client.get_positions()
+                if positions:
+                    pos_list = ", ".join([f"{p.coin} {'LONG' if p.size > 0 else 'SHORT'}" for p in positions])
+                    print(f"\n📊 Bestehende Positionen: {pos_list}")
+            except Exception:
+                pass
 
         if not breakout:
             msg = f"🔍 APEX {session.upper()}: Kein Breakout – kein Trade"
@@ -471,7 +517,7 @@ def main():
         print(f"   {breakout['asset']} {breakout['direction'].upper()}")
         print(f"   Preis: ${breakout['current_price']:,.4f}")
         print(f"   Box:   ${breakout['box_low']:,.4f} – ${breakout['box_high']:,.4f}")
-        print(f"   Distanz: ${breakout['breakout_size']:,.4f}")
+        print(f"   Distanz: ${breakout['breakout_distance']:,.4f}")
 
         # Live Balance für Risk-Berechnung holen
         risk_usd, balance = get_risk_usd(client)
@@ -503,6 +549,7 @@ def main():
             breakout["box_high"],
             breakout["box_low"],
             risk_usd,
+            context=breakout,
         )
 
         dry_tag = " [DRY RUN]" if DRY_RUN else ""
@@ -513,7 +560,7 @@ def main():
             print(f"   Size:        {result['size']}")
             print(f"   Stop-Loss:   ${result['stop_loss']:,.4f}  (Risk: ${result['risk_usd']:.2f})")
             print(f"   TP1 (1:1):   ${result['take_profit_1']:,.4f}  (Size {result['size_tp1']})")
-            print(f"   TP2 (3:1):   ${result['take_profit_2']:,.4f}  (Size {result['size_tp2']})")
+            print(f"   TP2 Trailing: Aktivierung @ ${result['trailing_activation']:,.4f} | Trail {result['trail_pct']*100:.2f}% (Size {result['size_tp2']})")
             print(f"   Hebel:       {LEVERAGE}x")
 
             direction_emoji = "🟢" if result["direction"] == "long" else "🔴"
@@ -523,10 +570,10 @@ def main():
                 f"Entry: ${result['entry']:,.4f}\n"
                 f"Size: {result['size']}\n"
                 f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
-                f"Split Take-Profit:\n"
+                f"Exit-Strategie:\n"
                 f"  TP1 (1:1): ${result['take_profit_1']:,.4f} (Size {result['size_tp1']})\n"
-                f"  TP2 (3:1): ${result['take_profit_2']:,.4f} (Size {result['size_tp2']})\n"
-                f"Hebel: {LEVERAGE}x | R:R Split 1:1 + 3:1"
+                f"  TP2 Trailing: ab ${result['trailing_activation']:,.4f} | {result['trail_pct']*100:.2f}% Offset (Size {result['size_tp2']})\n"
+                f"Hebel: {LEVERAGE}x | Split 1:1 + Trailing(2R)"
             )
             send_telegram_message(msg)
         else:

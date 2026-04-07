@@ -1,5 +1,19 @@
 # APEX Trading Bot – Claude Code Kontext
 
+## Automatische Anweisungen für Claude Code
+
+**BEIM SESSION-START:**
+Der Hook läuft automatisch und zeigt den APEX-Status. Lese ihn vollständig.
+Dann prüfe ob offene Positionen oder ausstehende Punkte aus dem letzten Session-Log existieren und weise Andre darauf hin.
+
+**WENN ANDRE SCHREIBT "apex session end":**
+1. Fasse die Erkenntnisse dieser Session zusammen (was analysiert, was entschieden, was implementiert)
+2. Aktualisiere den Abschnitt "Architektur-Entscheidungen & Session-Log" in dieser Datei
+3. Aktualisiere die Memory-Dateien unter `/root/.claude/projects/-root/memory/` wenn sich etwas am Projektstand geändert hat
+4. Bestätige kurz was gespeichert wurde
+
+---
+
 ## Wer bin ich / Wer ist der User
 
 - **User:** Andre (nicht Christian – das ist der Kollege dessen Repo als Basis diente)
@@ -61,6 +75,60 @@ apex-trading-bot/
 ├── logs/                      ← Log-Dateien (gitignored)
 └── setup_server.sh            ← Einmaliges Server-Setup-Skript
 ```
+
+---
+
+## Architektur-Entscheidungen & Session-Log
+
+### Session 2026-04-07 – Exit-Mechanismus Überarbeitung
+
+**Analyse:** State Pattern vs. Hybrid-Architektur für ORB-Exit-Management
+
+Wir haben eine vorgeschlagene State-Pattern-Architektur (Active → BreakEven → Trailing) analysiert
+und gegen die bestehende cron-basierte Architektur abgewogen (Chain of Truth + Devil's Advocate).
+
+**Kernerkenntnisse:**
+
+1. **State Pattern ist konzeptuell richtig**, aber für cron-Betrieb nicht direkt umsetzbar –
+   Trailing bei 30-Minuten-Granularität ist de facto ein statischer Stop.
+
+2. **Bitget hat nativen Trailing Stop** (`planType: "moving_plan"`), den wir nicht nutzten.
+   Exchange-side Trailing überlebt Server-Abstürze ohne Cancel-Replace-Lücken.
+
+3. **Split-TP implementiert Break-Even bereits implizit** (TP1 bei 1:1 auf halbe Size),
+   aber ein expliziter BE-SL-Verschiebung macht den Schutz sauber und Exchange-side.
+
+4. **Short-Handling Bug:** `peak_price` wurde mit `max()` für beide Richtungen getrackt.
+   In der BE-Logik fehlte die Short-Richtung vollständig.
+
+5. **Cancel-Replace erzeugt SL-Lücken-Fenster** (~2-5 Sekunden ohne Schutz).
+   Jede SL-Aktualisierung = ein Fenster. Native Orders umgehen das.
+
+**Implementierte Verbesserungen (2026-04-07):**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | `place_trailing_stop()` (moving_plan) | `bitget_client.py` | Exchange-side Trailing, kein Daemon nötig |
+| 2 | TP2 → Trailing Stop bei 2R Aktivierung | `autonomous_trade.py` | Dynamischer Exit statt statischem 3:1 |
+| 3 | Break-Even SL-Verschiebung bei 1R | `position_monitor.py` | SL auf Entry+Buffer wenn Trade risikolos |
+| 4 | Monitor-Intervall: 30 Min → 5 Min | `crontab_template.txt` | BE-Check braucht feinere Granularität |
+| 5 | Short-Direction korrekt in BE-Logik | `position_monitor.py` | SL-Bewegung ist richtungsabhängig |
+| 6 | Volume-Logging beim Entry | `autonomous_trade.py` | Breakout-Volumen + 20er-Avg für spätere Analyse |
+| 7 | Exit-Logging in trades.json | `position_monitor.py` | PnL, R-Multiple, Exit-Grund pro Trade nachvollziehbar |
+| 8 | `apex_status.py` – Session Context Script | `scripts/apex_status.py` | Einbefehl-Kontext: Balance, Trades, P&L, Session-Log |
+| 9 | Auto-Hook Session-Start | `~/.claude/settings.json` | Kontext läuft automatisch beim ersten Prompt |
+| 10 | Memory-Dateien erstellt | `/root/.claude/projects/-root/memory/` | Projektkontext über Sessions hinweg persistent |
+
+**Entschiedene Nicht-Implementierungen (mit Begründung):**
+- **Volume-Filter:** Zu wenig Daten (13 Trades). Erst loggen, dann mit ~30+ Trades evaluieren.
+- **State Pattern als Daemon:** Architektursprung zu groß. Bitget native Trailing ist gleichwertig.
+- **Häufigeres Polling:** Kein Mehrwert – Trailing läuft exchange-side, BE bei 5 Min ok.
+
+**Offene Verbesserungsliste (priorisiert):**
+1. Volume-Filter evaluieren sobald ~30 Trades mit Volume-Daten vorliegen
+2. P&L-Analyse: Winrate, Avg R-Win vs R-Loss, Verlusttrades analysieren
+3. Daemon-Architektur als Schritt wenn Kapital > $200 und Edge bewiesen
+4. Funding-Rate Logging (Schritt 2 nach Volume-Analyse)
 
 ---
 
@@ -162,6 +230,24 @@ ASSETS = ["ETH", "SOL", "AVAX"]
 - **DRY_RUN immer zuerst** – erst wenn Telegram-Nachrichten korrekt ankommen live schalten
 - **Timezone muss Berlin sein** – alle Cron-Zeiten sind Europe/Berlin
 - Die Datei `config/.env.bitget` muss manuell auf dem Server erstellt werden (nie in Git!)
+
+---
+
+## Session-Befehle für Claude Code
+
+### Befehl 1: Session START – Kontext wiederherstellen
+```bash
+! python /root/apex-trading-bot/scripts/apex_status.py
+```
+Gibt aus: Balance, offene Positionen, aktive Orders, letzte 8 Trades mit Volume-Ratio und P&L, Winrate, Systemstatus.
+**Immer als erstes in einer neuen Session ausführen.**
+
+### Befehl 2: Session ENDE – Erkenntnisse sichern
+Am Ende einer Session einfach schreiben:
+```
+apex session end
+```
+Claude aktualisiert dann `CLAUDE.md` (Architektur-Log) und die Memory-Dateien unter `/root/.claude/projects/-root/memory/` mit den Erkenntnissen der Session.
 
 ---
 

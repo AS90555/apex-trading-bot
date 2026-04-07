@@ -37,8 +37,9 @@
 # ─── NIGHTLY REPORT (täglich 01:30, alle Sessions abgeschlossen) ────────────
 30 1 * * *    cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/nightly_report.py >> /root/apex-trading-bot/logs/daily.log 2>&1
 
-# ─── POSITION MONITOR (alle 30 Min, Mo-So) ───────────────────
-*/30 * * * *  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/position_monitor.py >> /root/apex-trading-bot/logs/monitor.log 2>&1
+# ─── POSITION MONITOR (alle 5 Min, Mo-So) ────────────────────
+# 5 Min: notwendig für zeitnahen Break-Even-SL bei 1R Gewinn
+*/5 * * * *   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/position_monitor.py >> /root/apex-trading-bot/logs/monitor.log 2>&1
 
 # ─── WEEKEND MOMO (AVAX) ─────────────────────────────────────
 0  23 * * 5   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/weekend_momo.py --check >> /root/apex-trading-bot/logs/weekend.log 2>&1
