@@ -193,8 +193,8 @@ def detect_anomalies(sessions, trades_data, boxes):
         threshold = BREAKOUT_THRESHOLD.get(asset, 0)
         if rng > 0 and threshold > 0:
             ratio = threshold / rng
-            if ratio > 0.5:
-                hints.append(f"⚡ {asset}: BREAKOUT_THRESHOLD (${threshold}) ist {ratio:.0%} der Box-Range — ggf. zu eng")
+            if ratio > 0.9:
+                hints.append(f"⚡ {asset}: BREAKOUT_THRESHOLD (${threshold}) ist {ratio:.0%} der Box-Range — zu eng, kaum Trades möglich")
             elif ratio < 0.1:
                 hints.append(f"⚡ {asset}: BREAKOUT_THRESHOLD sehr klein vs. Box-Range — viele False Signals möglich")
 
