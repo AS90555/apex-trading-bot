@@ -124,11 +124,26 @@ und gegen die bestehende cron-basierte Architektur abgewogen (Chain of Truth + D
 - **State Pattern als Daemon:** Architektursprung zu groß. Bitget native Trailing ist gleichwertig.
 - **Häufigeres Polling:** Kein Mehrwert – Trailing läuft exchange-side, BE bei 5 Min ok.
 
+**Qualitycheck-Findings (2026-04-07):**
+
+3 verpasste Trades in 48h – alle durch Bugs verursacht, alle behoben:
+
+| # | Bug | Schwere | Behoben |
+|---|-----|---------|---------|
+| 1 | `KeyError: 'breakout_size'` (umbenannt zu `breakout_distance`) | Kritisch | ✅ |
+| 2 | Direktes JSON-Schreiben ohne tmp+rename (Korruption bei Absturz) | Hoch | ✅ |
+| 3 | Kein Telegram-Alert bei position_monitor.py Exception | Hoch | ✅ |
+| 4 | BE-Preis Fallback: `current_price=0` wenn API fehlschlägt | Mittel | ✅ |
+| 5 | Doppelter `get_positions()` API-Call pro Cron-Run | Mittel | ✅ |
+
+Übersprungen (begründet): Timezone (Server=Berlin ✓), SL-Buffer (by design), Race Condition (Lock schützt), trades.json Format-Mix (legacy, kein Einfluss auf neue Trades)
+
 **Offene Verbesserungsliste (priorisiert):**
 1. Volume-Filter evaluieren sobald ~30 Trades mit Volume-Daten vorliegen
-2. P&L-Analyse: Winrate, Avg R-Win vs R-Loss, Verlusttrades analysieren
-3. Daemon-Architektur als Schritt wenn Kapital > $200 und Edge bewiesen
-4. Funding-Rate Logging (Schritt 2 nach Volume-Analyse)
+2. P&L-Analyse: Winrate, Avg R-Win vs R-Loss nach ausreichend Trade-History
+3. `45115` Bitget Preis-Format Fehler beobachten – einmalig aufgetreten, kein Fix nötig
+4. Daemon-Architektur wenn Kapital > $200 und Edge bewiesen
+5. Funding-Rate Logging (nach Volume-Analyse)
 
 ---
 

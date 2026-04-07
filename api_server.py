@@ -188,4 +188,4 @@ if __name__ == "__main__":
     print(f"Token:    {API_TOKEN}")
     print(f"Data-Dir: {DATA_DIR}")
     print("=" * 55)
-    app.run(host="0.0.0.0", port=PORT, debug=False)
+    app.run(host="127.0.0.1", port=PORT, debug=False)
