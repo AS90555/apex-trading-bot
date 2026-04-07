@@ -265,7 +265,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         )
         send_telegram_message(alert_msg)
 
-    # Trade loggen (nur wenn SL + TP erfolgreich gesetzt)
+    # Trade loggen (SL ist gesetzt; TP kann partiell fehlen aber Trade läuft)
     log_trade({
         "asset": asset,
         "direction": direction,

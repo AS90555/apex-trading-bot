@@ -52,7 +52,7 @@ def get_total_trade_pnl(client, coin: str, opened_at_ms: int):
 
     for fill in fills:
         fill_time = int(fill.get("cTime", 0))
-        if opened_at_ms and fill_time < opened_at_ms:
+        if fill_time and opened_at_ms and fill_time < opened_at_ms:
             break  # ältere Fills gehören nicht zum aktuellen Trade
         total_pnl += float(fill.get("profit", 0))
         size = float(fill.get("baseVolume", fill.get("size", fill.get("fillSz", 0))))

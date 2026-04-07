@@ -22,14 +22,13 @@ sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
     from bot_config import (
         DRY_RUN, CAPITAL, MAX_RISK_PCT,
-        ASSET_PRIORITY as ASSETS, BREAKOUT_THRESHOLD
+        ASSET_PRIORITY as ASSETS,
     )
 except ImportError:
     DRY_RUN = True
     CAPITAL = 50.0
     MAX_RISK_PCT = 0.02
     ASSETS = ["ETH", "SOL", "AVAX", "XRP"]
-    BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15, "XRP": 0.005}
 
 BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
@@ -73,15 +72,6 @@ def has_traded_in_session(session):
         if trade_date == today and trade_session == session:
             return True, trade
     return False, None
-
-
-def check_breakout(asset, price, box_high, box_low):
-    threshold = BREAKOUT_THRESHOLD.get(asset, price * 0.002)
-    if price > box_high + threshold:
-        return "long"
-    elif price < box_low - threshold:
-        return "short"
-    return None
 
 
 def format_summary(session):
