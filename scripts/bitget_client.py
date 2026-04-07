@@ -352,7 +352,9 @@ class BitgetClient:
             return []
 
     def get_tpsl_orders(self, coin: str) -> List[Dict]:
-        """Gibt aktive Plan-Orders (SL/TP) für ein Asset zurück"""
+        """Gibt aktive Plan-Orders (SL/TP) für ein Asset zurück.
+        400-Fehler von Bitget (kein Order vorhanden) → leere Liste, kein Fehler-Log.
+        """
         if self.dry_run:
             return []
         try:
@@ -363,8 +365,7 @@ class BitgetClient:
             if isinstance(data, dict):
                 return data.get("entrustedList") or []
             return data if isinstance(data, list) else []
-        except Exception as e:
-            print(f"⚠️  TPSL-Order Check Fehler: {e}")
+        except Exception:
             return []
 
     def get_recent_fills(self, coin: str = None, limit: int = 20) -> List[Dict]:
@@ -468,15 +469,20 @@ class BitgetClient:
             body["presetStopSurplusTriggerType"] = "mark_price"
 
         try:
+            order_time_ms = int(time.time() * 1000)  # Timestamp vor Order für Fill-Filterung
             result = self._post("/api/v2/mix/order/place-order", body)
             order_id = result.get("orderId", "") if isinstance(result, dict) else ""
-            time.sleep(0.5)  # kurz warten für Fill
-            # Echten Fill-Preis aus Trade-History holen (genauer als Mark-Preis)
+            time.sleep(1.0)  # warten bis Fill in History erscheint
+            # Fill-Preis: nur Fills NACH diesem Order-Timestamp verwenden
+            # verhindert dass alte Fills (vorheriger Trade) als aktueller Fill erkannt werden
             fill_price = 0.0
             try:
-                fills = self.get_recent_fills(coin, limit=3)
-                if fills:
-                    fill_price = float(fills[0].get("price", 0))
+                fills = self.get_recent_fills(coin, limit=5)
+                for fill in fills:
+                    fill_time = int(fill.get("cTime", 0))
+                    if fill_time >= order_time_ms - 5000:  # max. 5s vor Order (Puffer für Uhr-Differenz)
+                        fill_price = float(fill.get("price", 0))
+                        break
             except Exception:
                 pass
             if not fill_price:
@@ -572,12 +578,15 @@ class BitgetClient:
             hold_side = "long" if pos.size > 0 else "short"
 
         try:
+            # callbackRatio: Bitget erwartet Prozent-Form (z.B. "1.5000" = 1.5%, nicht 0.015)
+            # Minimum bei Bitget: 0.1% – floor auf 0.5% als Sicherheit
+            callback_pct = max(callback_ratio * 100, 0.5)
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,
                 "planType": "moving_plan",
-                "callbackRatio": f"{callback_ratio:.4f}",
+                "callbackRatio": f"{callback_pct:.4f}",
                 "triggerPrice": self._format_price(coin, activation_price),
                 "triggerType": "mark_price",
                 "holdSide": hold_side,
