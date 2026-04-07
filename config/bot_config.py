@@ -57,7 +57,7 @@ BREAKOUT_THRESHOLD = {  # Mindestdistanz für Breakout-Erkennung
     "ETH":  5.0,        # $5 über/unter Box
     "SOL":  0.10,       # $0.10 über/unter Box (reduziert von $0.30 — war 250% der Box-Range)
     "AVAX": 0.05,       # $0.05 über/unter Box (reduziert von $0.15 — war 250% der Box-Range)
-    "XRP":  0.005,      # $0.005 über/unter Box
+    "XRP":  0.001,      # $0.001 über/unter Box (war $0.005 = 111% der Box-Range → nie getradet)
 }
 MIN_BOX_RANGE = {       # Mindest-Kerzenbreite für gültige ORB-Box (15m-Candle)
     "ETH":  1.0,        # $1.00 – unter 0.05% Range ist kein ORB
@@ -66,6 +66,9 @@ MIN_BOX_RANGE = {       # Mindest-Kerzenbreite für gültige ORB-Box (15m-Candle
     "XRP":  0.003,      # $0.003
 }
 MAX_BOX_AGE_MIN = 120   # Box maximal 2h alt (verhindert Vortagsdaten)
+MAX_BREAKOUT_DISTANCE_RATIO = 2.0  # Max Breakout-Distanz als Vielfaches der Box-Range
+                                    # Verhindert Chasing: Preis > 2x Range über Box-Grenze → kein Trade
+                                    # Beispiel ETH Box $9.23: max $18.46 über Box-High erlaubt
 
 # WEEKEND MOMENTUM
 

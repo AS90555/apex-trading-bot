@@ -25,19 +25,20 @@ try:
     from bot_config import (
         DRY_RUN, CAPITAL, MAX_RISK_PCT, ASSET_PRIORITY,
         BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS, DRAWDOWN_KILL_PCT,
-        MIN_BOX_RANGE, MAX_BOX_AGE_MIN
+        MIN_BOX_RANGE, MAX_BOX_AGE_MIN, MAX_BREAKOUT_DISTANCE_RATIO
     )
 except ImportError:
     DRY_RUN = True
     CAPITAL = 50.0
     MAX_RISK_PCT = 0.02
     ASSET_PRIORITY = ["ETH", "SOL", "AVAX", "XRP"]
-    BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15, "XRP": 0.005}
+    BREAKOUT_THRESHOLD = {"ETH": 5.0, "SOL": 0.30, "AVAX": 0.15, "XRP": 0.001}
     LEVERAGE = 5
     SIZE_DECIMALS = {"ETH": 2, "SOL": 1, "AVAX": 1, "XRP": 0}
     DRAWDOWN_KILL_PCT = 0.50
     MIN_BOX_RANGE = {"ETH": 1.0, "SOL": 0.10, "AVAX": 0.04, "XRP": 0.003}
     MAX_BOX_AGE_MIN = 120
+    MAX_BREAKOUT_DISTANCE_RATIO = 2.0
 
 MAX_RISK_USD = CAPITAL * MAX_RISK_PCT
 
@@ -410,6 +411,13 @@ def scan_for_breakouts(client):
         direction = check_breakout(asset, current_price, box["high"], box["low"])
 
         if direction:
+            # Late-Entry-Guard: Preis darf maximal 2x Box-Range über/unter Breakout-Level liegen
+            breakout_dist = abs(current_price - (box["high"] if direction == "long" else box["low"]))
+            max_dist = box_range * MAX_BREAKOUT_DISTANCE_RATIO
+            if breakout_dist > max_dist:
+                print(f"   ⏭️  {asset}: Breakout zu spät (${breakout_dist:.4f} > {MAX_BREAKOUT_DISTANCE_RATIO}x Range=${max_dist:.4f}) – übersprungen")
+                continue
+
             # Candle-Close Confirmation + Volume-Daten für Logging
             # 21 Candles: 20 für Volume-Durchschnitt + 1 aktuelle (nicht abgeschlossen)
             volume_at_breakout = 0.0
