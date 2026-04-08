@@ -38,10 +38,12 @@ def load_state():
 
 
 def save_state(state):
-    """Save current state"""
+    """Save current state (atomar via tmp+rename)"""
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-    with open(STATE_FILE, 'w') as f:
+    tmp_file = STATE_FILE + ".tmp"
+    with open(tmp_file, 'w') as f:
         json.dump(state, f, indent=2)
+    os.replace(tmp_file, STATE_FILE)
 
 
 def get_total_trade_pnl(client, coin: str, opened_at_ms: int):
@@ -152,10 +154,11 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
     print(f"   1R erreicht: Preis ${current_price:,.4f} vs. 1R-Level ${entry_price + (risk_per_unit if is_long else -risk_per_unit):,.4f}")
     print(f"   SL-Verschiebung: ${original_sl:,.4f} → ${new_sl:,.4f} (Entry + Fee-Buffer)")
 
-    # Alten SL canceln und neuen setzen
-    cancel_ok = client.cancel_tpsl_orders(pos.coin)
+    # KRITISCH: Nur den alten loss_plan canceln – TP1 (profit_plan) und Trailing (moving_plan)
+    # bleiben aktiv. Cancel-All würde den Trailing Stop killen und das gesamte Upside zerstören.
+    cancel_ok = client.cancel_tpsl_orders(pos.coin, plan_types=["loss_plan"])
     if not cancel_ok:
-        print(f"   ❌ Cancel fehlgeschlagen – BE-SL nicht gesetzt")
+        print(f"   ❌ Cancel SL fehlgeschlagen – BE-SL nicht gesetzt")
         return False
 
     sl_result = client.place_stop_loss(pos.coin, new_sl, abs(pos.size), hold_side=hold_side)
@@ -168,11 +171,41 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
         )
         return False
 
+    # Sicherheitsnetz: Falls das Trailing aus irgendeinem Grund nicht mehr aktiv ist
+    # (z.B. manuell entfernt oder durch früheren Cancel-Bug verloren), neu setzen.
+    # Wichtig: GET muss erfolgreich sein – sonst Duplikat-Risiko bei API-Hiccup.
+    trailing_restored = False
+    try:
+        active_orders = client.get_tpsl_orders(pos.coin)
+        # Plausibilität: unser frisch platzierter BE-SL muss sichtbar sein,
+        # sonst hat der GET vermutlich gefailed → kein Re-Place wagen.
+        be_sl_visible = any(o.get("planType") == "loss_plan" for o in active_orders)
+        has_trailing = any(o.get("planType") == "moving_plan" for o in active_orders)
+        if be_sl_visible and not has_trailing:
+            trail_pct = float(last_trade.get("trail_pct", 0) or 0)
+            trailing_activation = float(last_trade.get("trailing_activation", 0) or 0)
+            size_tp2 = float(last_trade.get("size_tp2", 0) or 0)
+            if not size_tp2:
+                # Fallback: verbleibende Position (TP1 könnte schon gefüllt sein)
+                size_tp2 = abs(pos.size)
+            if trail_pct > 0 and trailing_activation > 0 and size_tp2 > 0:
+                tp2_r = client.place_trailing_stop(
+                    pos.coin, trail_pct, trailing_activation, size_tp2, hold_side=hold_side
+                )
+                trailing_restored = tp2_r.success
+                if trailing_restored:
+                    print(f"   🔄 Trailing Stop neu gesetzt @ ${trailing_activation:,.4f} ({trail_pct*100:.2f}%)")
+                else:
+                    print(f"   ⚠️  Trailing-Replace fehlgeschlagen: {tp2_r.error}")
+    except Exception as e:
+        print(f"   ⚠️  Trailing-Check fehlgeschlagen: {e}")
+
     print(f"   ✅ BE-SL gesetzt @ ${new_sl:,.4f}")
+    extra = " | Trailing wiederhergestellt" if trailing_restored else ""
     send_telegram_notification(
         f"🛡️ APEX: Break-Even aktiv\n\n"
         f"{pos.coin} {direction_str}\n"
-        f"1R erreicht – SL auf ${new_sl:,.4f} nachgezogen\n"
+        f"1R erreicht – SL auf ${new_sl:,.4f} nachgezogen{extra}\n"
         f"(Entry: ${entry_price:,.4f} | Buffer: ${fee_buffer:,.4f})"
     )
     return True
@@ -244,8 +277,11 @@ def update_pnl_tracker(pnl):
                 milestone["reached"] = True
                 print(f"\n🎉 MILESTONE REACHED: +${milestone['target']} → Bonus: +${milestone['bonus']} USDC!")
     
-    with open(PNL_TRACKER_FILE, 'w') as f:
+    # Atomar: tmp + replace verhindert korrupte JSON bei Crash mid-write
+    tmp_file = PNL_TRACKER_FILE + ".tmp"
+    with open(tmp_file, 'w') as f:
         json.dump(tracker, f, indent=2)
+    os.replace(tmp_file, PNL_TRACKER_FILE)
 
 
 def main():

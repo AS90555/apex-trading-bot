@@ -57,6 +57,7 @@ def load_boxes():
 
 
 def has_traded_in_session(session):
+    """Liefert den jüngsten Trade dieser Session am heutigen Tag (newest-first)."""
     if not os.path.exists(TRADES_FILE):
         return False, None
     try:
@@ -66,8 +67,10 @@ def has_traded_in_session(session):
         return False, None
 
     today = datetime.now().date().isoformat()
-    for trade in trades:
+    for trade in reversed(trades):
         trade_date = trade.get("timestamp", "")[:10]
+        if trade_date and trade_date < today:
+            break
         trade_session = trade.get("session", "")
         if trade_date == today and trade_session == session:
             return True, trade
@@ -98,6 +101,14 @@ def format_summary(session):
         direction_icon = "🟢" if trade_data.get("direction") == "long" else "🔴"
         lines.append(f"*Trade:* ✅ {direction_icon} *{asset} {direction}* @ ${entry:,.4f}")
         lines.append(f"  SL: ${sl:,.4f} | TP1: ${tp1:,.4f}")
+        # Exit-Ergebnis falls Trade während der Session schon geschlossen wurde
+        exit_pnl = trade_data.get("exit_pnl_usd")
+        if exit_pnl is not None:
+            exit_r = trade_data.get("exit_pnl_r", 0)
+            reason = trade_data.get("exit_reason", "")
+            result_icon = "✅" if exit_pnl > 0 else ("⚖️" if exit_pnl == 0 else "❌")
+            sign = "+" if exit_pnl >= 0 else ""
+            lines.append(f"  Ergebnis: {result_icon} {sign}${exit_pnl:.2f} ({sign}{exit_r}R) {reason}")
     else:
         positions = client.get_positions()
         if positions:

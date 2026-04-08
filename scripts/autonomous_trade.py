@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scripts.bitget_client import BitgetClient
+from scripts.bitget_client import BitgetClient, MIN_TRADE_SIZE
 from telegram_sender import send_telegram_message
 
 # Config laden
@@ -52,8 +52,12 @@ HWM_FILE = os.path.join(DATA_DIR, "high_water_mark.json")
 def load_boxes():
     if not os.path.exists(BOXES_FILE):
         return {}
-    with open(BOXES_FILE, "r") as f:
-        return json.load(f)
+    try:
+        with open(BOXES_FILE, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"⚠️  Boxes-Datei korrupt oder unlesbar: {e}")
+        return {}
 
 
 def get_current_session():
@@ -70,16 +74,23 @@ def get_current_session():
 
 
 def has_traded_today_in_session(session):
-    """Prüfe ob in dieser Session heute schon getradet wurde"""
+    """Prüfe ob in dieser Session heute schon getradet wurde (newest-first für Performance)"""
     if not os.path.exists(TRADES_FILE):
         return False
 
-    with open(TRADES_FILE, "r") as f:
-        trades = json.load(f)
+    try:
+        with open(TRADES_FILE, "r") as f:
+            trades = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"⚠️  trades.json unlesbar: {e}")
+        return False
 
     today = datetime.now().date().isoformat()
-    for trade in trades:
+    for trade in reversed(trades):
         trade_date = trade.get("timestamp", "")[:10]
+        # Optimierung: ältere Trades als heute → kein Match mehr möglich, abbrechen
+        if trade_date and trade_date < today:
+            break
         trade_session = trade.get("session", "")
         if not trade_session:
             trade_hour = datetime.fromisoformat(trade["timestamp"]).hour
@@ -217,6 +228,14 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     size_tp1 = round_size(asset, size / 2)
     size_tp2 = round_size(asset, size - size_tp1)
 
+    # MIN_TRADE_SIZE-Check: Wenn TP1-Hälfte unter Bitget-Mindestgröße rundet,
+    # gesamten Size ins Trailing routen statt eine TP1-Order mit 0 zu platzieren.
+    min_sz = MIN_TRADE_SIZE.get(asset, 0.01)
+    if size_tp1 < min_sz:
+        print(f"   ℹ️  TP1-Size {size_tp1} < Min {min_sz} ({asset}) – Split übersprungen, alles ins Trailing")
+        size_tp1 = 0.0
+        size_tp2 = size
+
     # Warten bis Position in API sichtbar ist (Bitget braucht 3-5s)
     if not DRY_RUN:
         time.sleep(5)
@@ -235,13 +254,17 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         sl_ok = sl_r.success
         print(f"   {'✅' if sl_ok else '❌'} SL {'gesetzt' if sl_ok else 'FEHLER: ' + str(sl_r.error)}")
 
-    # Split Take-Profit platzieren (TP1 + TP2)
-    tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1, hold_side=hold_side)
-    if not tp1_r.success:
-        time.sleep(2)
+    # Split Take-Profit platzieren (TP1 nur wenn Size > 0 — sonst Trailing-only)
+    if size_tp1 > 0:
         tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1, hold_side=hold_side)
-    tp1_ok = tp1_r.success
-    print(f"   {'✅' if tp1_ok else '❌'} TP1 1:1 @ ${take_profit_1:,.4f} (Size {size_tp1}) {'gesetzt' if tp1_ok else 'FEHLER: ' + str(tp1_r.error)}")
+        if not tp1_r.success:
+            time.sleep(2)
+            tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1, hold_side=hold_side)
+        tp1_ok = tp1_r.success
+        print(f"   {'✅' if tp1_ok else '❌'} TP1 1:1 @ ${take_profit_1:,.4f} (Size {size_tp1}) {'gesetzt' if tp1_ok else 'FEHLER: ' + str(tp1_r.error)}")
+    else:
+        tp1_ok = True  # bewusst übersprungen – kein Fehler
+        print(f"   ⏭️  TP1 übersprungen (Trailing-only Mode)")
 
     tp2_r = client.place_trailing_stop(asset, trail_pct, trailing_activation, size_tp2, hold_side=hold_side)
     if not tp2_r.success:
@@ -367,11 +390,11 @@ def scan_for_breakouts(client):
     """
     Scanne alle Assets auf Breakouts.
     Skipped Assets mit offenen Positionen, zu alten Boxen oder zu kleiner Range.
-    Returns: dict oder None
+    Returns: (breakout dict or None, list of open Positions)
     """
     boxes = load_boxes()
     if not boxes:
-        return None
+        return None, []
 
     positions = client.get_positions()
     position_assets = [p.coin for p in positions]
@@ -458,9 +481,9 @@ def scan_for_breakouts(client):
                 "volume_at_breakout": round(volume_at_breakout, 2),
                 "volume_avg_20": round(volume_avg_20, 2),
                 "volume_ratio": round(volume_ratio, 3),
-            }
+            }, positions
 
-    return None
+    return None, positions
 
 
 def main():
@@ -501,19 +524,14 @@ def main():
 
         client = BitgetClient(dry_run=DRY_RUN)
 
-        # Breakout suchen (scan_for_breakouts holt intern get_positions)
+        # Breakout suchen (scan_for_breakouts holt intern get_positions und gibt sie zurück)
         print("\n🔍 Suche Breakouts...")
-        breakout = scan_for_breakouts(client)
+        breakout, positions = scan_for_breakouts(client)
 
         # Offene Positionen aus dem Scan-Ergebnis ableiten (kein extra API-Call)
-        if not breakout:
-            try:
-                positions = client.get_positions()
-                if positions:
-                    pos_list = ", ".join([f"{p.coin} {'LONG' if p.size > 0 else 'SHORT'}" for p in positions])
-                    print(f"\n📊 Bestehende Positionen: {pos_list}")
-            except Exception:
-                pass
+        if not breakout and positions:
+            pos_list = ", ".join([f"{p.coin} {'LONG' if p.size > 0 else 'SHORT'}" for p in positions])
+            print(f"\n📊 Bestehende Positionen: {pos_list}")
 
         if not breakout:
             msg = f"🔍 APEX {session.upper()}: Kein Breakout – kein Trade"

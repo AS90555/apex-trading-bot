@@ -596,14 +596,19 @@ class BitgetClient:
         except Exception as e:
             return OrderResult(success=False, error=str(e))
 
-    def cancel_tpsl_orders(self, coin: str) -> bool:
-        """Storniere alle Plan-Orders (SL/TP) für ein Asset.
+    def cancel_tpsl_orders(self, coin: str, plan_types: Optional[List[str]] = None) -> bool:
+        """Storniere Plan-Orders (SL/TP) für ein Asset.
+
+        plan_types: Optional Filter, z.B. ["loss_plan"] → nur SL canceln,
+                    TP1 (profit_plan) und Trailing (moving_plan) bleiben aktiv.
+                    Default (None) cancelt ALLE Plan-Orders.
 
         GET-Fehler (z.B. 400172 Parameter verification) = keine Orders vorhanden → True.
         Nur ein POST-Cancel-Fehler ist ein echter Fehler → False.
         """
         if self.dry_run:
-            print(f"[DRY RUN] Cancel TP/SL für {coin}")
+            filter_str = f" (only {','.join(plan_types)})" if plan_types else ""
+            print(f"[DRY RUN] Cancel TP/SL für {coin}{filter_str}")
             return True
 
         # Schritt 1: Bestehende Orders abfragen
@@ -625,6 +630,12 @@ class BitgetClient:
         if not orders:
             return True  # Keine Orders vorhanden – OK
 
+        # Optional: nach planType filtern (z.B. nur "loss_plan" für BE-SL-Update)
+        if plan_types:
+            orders = [o for o in orders if o.get("planType") in plan_types]
+            if not orders:
+                return True  # Keine passenden Orders – OK
+
         # Schritt 2: Orders canceln (echter Fehler wenn das scheitert)
         try:
             order_id_list = [
@@ -637,7 +648,8 @@ class BitgetClient:
                 "marginCoin": MARGIN_COIN,
                 "orderIdList": order_id_list,
             })
-            print(f"   🧹 {len(order_id_list)} Plan-Orders storniert ({coin})")
+            filter_str = f" [{','.join(plan_types)}]" if plan_types else ""
+            print(f"   🧹 {len(order_id_list)} Plan-Orders storniert ({coin}){filter_str}")
             return True
         except Exception as e:
             print(f"⚠️  Cancel TP/SL Fehler: {e}")

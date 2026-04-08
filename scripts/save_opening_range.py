@@ -80,11 +80,13 @@ def save_opening_range():
 
         time.sleep(1)  # Rate Limit Schutz
     
-    # Save
+    # Save (atomar: tmp + rename verhindert korrupte JSON bei Crash mid-write)
     os.makedirs(os.path.dirname(BOXES_FILE), exist_ok=True)
-    with open(BOXES_FILE, 'w') as f:
+    tmp_file = BOXES_FILE + ".tmp"
+    with open(tmp_file, 'w') as f:
         json.dump(boxes, f, indent=2)
-    
+    os.replace(tmp_file, BOXES_FILE)
+
     print(f"\n✅ Boxes saved to {BOXES_FILE}")
 
     # Send Telegram notification
