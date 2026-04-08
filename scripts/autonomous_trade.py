@@ -297,18 +297,25 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     # → Trade hätte NUR SL als Exit, keinen Profit-Mechanismus → notschließen
     if size_tp1 == 0 and not tp2_ok:
         print(f"\n🚨 Trailing-Only-Mode + Trailing FAIL → kein Profit-Mechanismus, notschließen...")
-        client.cancel_tpsl_orders(asset)
+        # Reihenfolge wichtig: ERST close (reduce_only), DANN orphan-cancel.
+        # Würden wir vorher cancel_tpsl_orders rufen, wäre auch der SL weg –
+        # wenn dann place_market_order fehlschlägt, läuft die Position ungeschützt.
         close_result = client.place_market_order(
             coin=asset,
             is_buy=not is_buy,
             size=size,
             reduce_only=True,
         )
+        if close_result.success:
+            client.cancel_tpsl_orders(asset)  # SL+TP-Orphans aufräumen
+            position_status = "geschlossen ✅"
+        else:
+            position_status = "KONNTE NICHT GESCHLOSSEN WERDEN ❌ – SL NOCH AKTIV – MANUELL HANDELN!"
         alert_msg = (
             f"🚨 APEX NOTFALL-SCHLIESSUNG{' [DRY RUN]' if DRY_RUN else ''}\n\n"
             f"{asset} {direction.upper()} – Trailing-Only-Mode + Trailing-Stop FEHLER\n"
             f"TP1 zu klein, Trailing nicht setzbar → kein Profit-Take möglich\n"
-            f"Position {'geschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
+            f"Position {position_status}"
         )
         send_telegram_message(alert_msg)
         return {"success": False, "error": "Trailing-Only + Trailing fail – notgeschlossen"}

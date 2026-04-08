@@ -30,11 +30,15 @@ TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
 
 
 def load_state():
-    """Load last known state"""
+    """Load last known state (resilient gegen korrupte JSON)"""
     if not os.path.exists(STATE_FILE):
         return {"last_position_count": 0, "last_check": None}
-    with open(STATE_FILE, 'r') as f:
-        return json.load(f)
+    try:
+        with open(STATE_FILE, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"⚠️  state.json unlesbar ({e}) – starte mit leerem State")
+        return {"last_position_count": 0, "last_check": None}
 
 
 def save_state(state):
@@ -197,8 +201,22 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
                     print(f"   🔄 Trailing Stop neu gesetzt @ ${trailing_activation:,.4f} ({trail_pct*100:.2f}%)")
                 else:
                     print(f"   ⚠️  Trailing-Replace fehlgeschlagen: {tp2_r.error}")
+                    send_telegram_notification(
+                        f"⚠️ APEX: Trailing-Restore FEHLER\n\n"
+                        f"{pos.coin} {direction_str}\n"
+                        f"BE-SL aktiv, aber Trailing konnte nicht neu gesetzt werden:\n"
+                        f"{tp2_r.error}\n"
+                        f"Trade läuft mit BE-SL bis manueller Eingriff."
+                    )
     except Exception as e:
         print(f"   ⚠️  Trailing-Check fehlgeschlagen: {e}")
+        send_telegram_notification(
+            f"⚠️ APEX: Trailing-Check FEHLER\n\n"
+            f"{pos.coin} {direction_str}\n"
+            f"BE wurde gesetzt, aber Trailing-Plausibilität fehlgeschlagen:\n"
+            f"{e}\n"
+            f"Trade läuft mit BE-SL bis manueller Eingriff."
+        )
 
     print(f"   ✅ BE-SL gesetzt @ ${new_sl:,.4f}")
     extra = " | Trailing wiederhergestellt" if trailing_restored else ""
