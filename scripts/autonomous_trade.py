@@ -294,6 +294,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         # Exit-Planung
         "stop_loss": stop_loss,
         "take_profit_1": take_profit_1,
+        "take_profit_2": None,  # wird als Trailing Stop gesetzt (siehe trailing_activation)
         "trailing_activation": trailing_activation,
         "trail_pct": round(trail_pct, 6),
         "size_tp1": size_tp1,
