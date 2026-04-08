@@ -80,6 +80,36 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-08 – Code Review: 8 Bugs behoben (Trailing, Atomars, MIN_SIZE)
+
+**Externe Code-Review** identifizierte 8 versteckte Bugs:
+
+**KRITISCH – Trailing-Stop-Kill bei Break-Even:**
+- `check_and_apply_break_even()` cancelte mit `cancel_tpsl_orders(pos.coin)` **ALLE** Plan-Orders.
+- Das heißt: TP1, TP2 (Trailing), UND SL wurden gelöscht; nur neuer BE-SL kam rein.
+- Effekt: Nach 1R Gewinn war dein kompletter Trailing-Stop (Upside-Maschine) tot.
+- **Fix:** `cancel_tpsl_orders()` nimmt jetzt optionalen `plan_types`-Filter → nur `["loss_plan"]` canceln.
+- Failsafe: Falls Trailing trotzdem weg → aus `trailing_activation` + `trail_pct` aus `trades.json` neu setzen.
+
+**Log-Rotation (truncate vs tail):**
+- Alte Variante: `truncate -s 1M` behielt die **ersten** 1MB (älteste Daten).
+- Neue Variante: `tail -c 1048576 | mv` behält die **letzten** 1MB (neueste Daten).
+
+**Atomare Writes:**
+- `save_opening_range.py`, `update_pnl_tracker()`, `save_state()` schreiben jetzt mit tmp+rename.
+- Verhindert JSON-Korruption bei mid-write Crashes.
+
+**MIN_TRADE_SIZE Enforcement:**
+- TP1-Split kann bei tiny Sizes zu `0.0` runden (banker's rounding).
+- Jetzt: if `size_tp1 < MIN_TRADE_SIZE` → skip TP1, alles ins Trailing.
+
+**API-Call Optimierung:**
+- `scan_for_breakouts()` gibt jetzt `(breakout, positions)` Tupel → kein 2. `get_positions()` nötig.
+
+**Commit:** `5a26115` — alle 8 Fixes live, Crontab aktualisiert.
+
+---
+
 ### Session 2026-04-07 – Exit-Mechanismus Überarbeitung
 
 **Analyse:** State Pattern vs. Hybrid-Architektur für ORB-Exit-Management
