@@ -293,6 +293,26 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         send_telegram_message(alert_msg)
         return {"success": False, "error": "SL fehlgeschlagen – Position notgeschlossen"}
 
+    # KRITISCH: Trailing-Only-Mode (size_tp1=0) + Trailing fehlgeschlagen
+    # → Trade hätte NUR SL als Exit, keinen Profit-Mechanismus → notschließen
+    if size_tp1 == 0 and not tp2_ok:
+        print(f"\n🚨 Trailing-Only-Mode + Trailing FAIL → kein Profit-Mechanismus, notschließen...")
+        client.cancel_tpsl_orders(asset)
+        close_result = client.place_market_order(
+            coin=asset,
+            is_buy=not is_buy,
+            size=size,
+            reduce_only=True,
+        )
+        alert_msg = (
+            f"🚨 APEX NOTFALL-SCHLIESSUNG{' [DRY RUN]' if DRY_RUN else ''}\n\n"
+            f"{asset} {direction.upper()} – Trailing-Only-Mode + Trailing-Stop FEHLER\n"
+            f"TP1 zu klein, Trailing nicht setzbar → kein Profit-Take möglich\n"
+            f"Position {'geschlossen ✅' if close_result.success else 'KONNTE NICHT GESCHLOSSEN WERDEN ❌ – MANUELL HANDELN!'}"
+        )
+        send_telegram_message(alert_msg)
+        return {"success": False, "error": "Trailing-Only + Trailing fail – notgeschlossen"}
+
     # TP unvollständig: SL ist aktiver Schutz → Warnung, Trade läuft weiter
     if not tp_ok:
         print(f"\n⚠️  TP unvollständig (TP1={tp1_ok}, TP2={tp2_ok}) – SL aktiv, Position läuft")
