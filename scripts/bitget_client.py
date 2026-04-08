@@ -578,15 +578,16 @@ class BitgetClient:
             hold_side = "long" if pos.size > 0 else "short"
 
         try:
-            # callbackRatio: Bitget erwartet Prozent-Form (z.B. "1.5000" = 1.5%, nicht 0.015)
-            # Minimum bei Bitget: 0.1% – floor auf 0.5% als Sicherheit
-            callback_pct = max(callback_ratio * 100, 0.5)
+            # rangeRate: Bitget v2 Feldname für Trailing-Prozent (NICHT callbackRatio!)
+            # Bitget error 40812 "rangeRate not met" tritt auf wenn callbackRatio gesendet wird.
+            # Wert: Prozent-Form (z.B. "1.5000" = 1.5%), Minimum laut Praxis ~1.0%
+            callback_pct = max(callback_ratio * 100, 1.0)
             self._post("/api/v2/mix/order/place-tpsl-order", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "marginCoin": MARGIN_COIN,
                 "planType": "moving_plan",
-                "callbackRatio": f"{callback_pct:.4f}",
+                "rangeRate": f"{callback_pct:.4f}",
                 "triggerPrice": self._format_price(coin, activation_price),
                 "triggerType": "mark_price",
                 "holdSide": hold_side,
