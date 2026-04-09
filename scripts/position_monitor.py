@@ -239,9 +239,18 @@ def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_ap
             if t.get("asset") == coin and not t.get("exit_timestamp"):
                 risk_usd = t.get("risk_usd") or 1.0
                 pnl_r = round(total_pnl / risk_usd, 2) if risk_usd else 0.0
-                exit_reason = "WIN" if total_pnl > 0 else "LOSS"
-                if be_applied and total_pnl >= 0:
-                    exit_reason = "BE_WIN" if total_pnl > 0 else "BE_BREAKEVEN"
+                if total_pnl > 0:
+                    if pnl_r >= 2.5:
+                        base_reason = "TP2_WIN"
+                    elif pnl_r >= 0.8:
+                        base_reason = "TP1_WIN"
+                    else:
+                        base_reason = "PARTIAL_WIN"
+                    exit_reason = f"BE_{base_reason}" if be_applied else base_reason
+                elif be_applied and total_pnl >= 0:
+                    exit_reason = "BE_BREAKEVEN"
+                else:
+                    exit_reason = "LOSS"
 
                 trades[i]["exit_timestamp"] = datetime.now().isoformat()
                 trades[i]["exit_price"] = exit_price
@@ -253,6 +262,10 @@ def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_ap
                 updated_trade = trades[i]
                 break
 
+        if updated_trade is None:
+            print(f"   ⚠️  Kein offener Trade für {coin} in trades.json – Exit nicht geloggt")
+            return
+
         # Atomares Schreiben: tmp-Datei + rename verhindert korrupte JSON bei Absturz
         tmp_file = TRADES_FILE + ".tmp"
         with open(tmp_file, 'w') as f:
@@ -262,8 +275,7 @@ def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_ap
         print(f"   📝 Trade-Exit geloggt: {coin} | PnL ${total_pnl:.2f} ({pnl_r}R) | {exit_reason}{funding_str}")
 
         # Event für Claude-Session-Start: Pending Note für trade_log.md erzeugen
-        if updated_trade is not None:
-            append_pending_note(updated_trade)
+        append_pending_note(updated_trade)
     except Exception as e:
         print(f"⚠️  Trade-Exit Logging Fehler: {e}")
 
@@ -386,7 +398,14 @@ def main():
 
         # Position-Tracking: opened_at und coin merken für späteren P&L
         if last_count == 0 or "position_opened_at" not in state:
-            new_state["position_opened_at"] = int(datetime.now().timestamp() * 1000)
+            last_trade = load_last_trade(pos.coin)
+            ts_str = last_trade.get("timestamp") if last_trade else None
+            if ts_str:
+                # 30s Puffer: Trade-Log-Timestamp kann nach tatsächlichem Fill liegen
+                opened_at_ms = int(datetime.fromisoformat(ts_str).timestamp() * 1000) - 30_000
+            else:
+                opened_at_ms = int(datetime.now().timestamp() * 1000)
+            new_state["position_opened_at"] = opened_at_ms
             new_state["tracked_coin"] = pos.coin
             new_state["be_applied"] = False  # Reset BE-Flag bei neuer Position
         else:

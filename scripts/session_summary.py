@@ -124,13 +124,22 @@ def format_summary(session):
 
     # Balance & P&L
     lines.append(f"*Account Equity:* ${equity:,.2f} USDT")
-    pnl = equity - CAPITAL
-    if CAPITAL > 0:
-        pnl_pct = (pnl / CAPITAL) * 100
+    start_capital = CAPITAL
+    capital_tracking_file = os.path.join(DATA_DIR, "capital_tracking.json")
+    if os.path.exists(capital_tracking_file):
+        try:
+            with open(capital_tracking_file, "r") as f:
+                ct = json.load(f)
+            start_capital = ct.get("adjusted_start_capital", CAPITAL)
+        except (json.JSONDecodeError, OSError):
+            pass
+    pnl = equity - start_capital
+    if start_capital > 0:
+        pnl_pct = (pnl / start_capital) * 100
         pnl_icon = "📈" if pnl >= 0 else "📉"
         pnl_sign = "+" if pnl >= 0 else ""
         lines.append(f"*P&L vs Start:* {pnl_icon} {pnl_sign}${pnl:.2f} ({pnl_sign}{pnl_pct:.2f}%)")
-    lines.append(f"_(Startkapital: ${CAPITAL:.2f} USDT)_")
+    lines.append(f"_(Startkapital: ${start_capital:.2f} USDT)_")
 
     return "\n".join(lines)
 

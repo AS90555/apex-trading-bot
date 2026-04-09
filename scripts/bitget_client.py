@@ -361,6 +361,7 @@ class BitgetClient:
             data = self._get("/api/v2/mix/order/orders-plan-pending", {
                 "productType": PRODUCT_TYPE,
                 "symbol": self._symbol(coin),
+                "pageSize": "20",
             }, auth=True)
             if isinstance(data, dict):
                 return data.get("entrustedList") or []
@@ -657,6 +658,7 @@ class BitgetClient:
             data = self._get("/api/v2/mix/order/orders-plan-pending", {
                 "productType": PRODUCT_TYPE,
                 "symbol": self._symbol(coin),
+                "pageSize": "20",
             }, auth=True)
             if isinstance(data, dict):
                 orders = data.get("entrustedList", [])

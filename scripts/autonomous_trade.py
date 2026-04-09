@@ -133,8 +133,12 @@ def log_trade(trade_data):
     os.makedirs(DATA_DIR, exist_ok=True)
     trades = []
     if os.path.exists(TRADES_FILE):
-        with open(TRADES_FILE, "r") as f:
-            trades = json.load(f)
+        try:
+            with open(TRADES_FILE, "r") as f:
+                trades = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"⚠️  trades.json unlesbar in log_trade: {e}")
+            trades = []
 
     trades.append({
         **trade_data,
@@ -516,70 +520,69 @@ def scan_for_breakouts(client):
             })
             continue
 
-        if direction:
-            # Late-Entry-Guard: Preis darf maximal 2x Box-Range über/unter Breakout-Level liegen
-            breakout_dist = abs(current_price - (box["high"] if direction == "long" else box["low"]))
-            max_dist = box_range * MAX_BREAKOUT_DISTANCE_RATIO
-            if breakout_dist > max_dist:
-                print(f"   ⏭️  {asset}: Breakout zu spät (${breakout_dist:.4f} > {MAX_BREAKOUT_DISTANCE_RATIO}x Range=${max_dist:.4f}) – übersprungen")
-                log_skip("late_entry", asset, current_session, {
-                    "direction": direction,
-                    "breakout_dist": round(breakout_dist, 6),
-                    "box_range": round(box_range, 6),
-                    "ratio": round(breakout_dist / box_range, 3) if box_range else None,
-                })
-                continue
-
-            # Candle-Close Confirmation + Volume-Daten für Logging
-            # 21 Candles: 20 für Volume-Durchschnitt + 1 aktuelle (nicht abgeschlossen)
-            volume_at_breakout = 0.0
-            volume_avg_20 = 0.0
-            volume_ratio = 0.0
-            try:
-                candles_5m = client.get_candles(asset, interval="5m", limit=21)
-                if candles_5m and len(candles_5m) >= 2:
-                    last_closed = candles_5m[-2]
-                    candle_close = last_closed["close"]
-                    if direction == "long" and candle_close <= box["high"]:
-                        print(f"   ⏭️  {asset}: Mid-Price ueber Box, aber 5m-Candle Close <= Box High -- Skip")
-                        log_skip("candle_not_confirmed", asset, current_session, {
-                            "direction": "long",
-                            "candle_close": candle_close,
-                            "box_high": box["high"],
-                        })
-                        continue
-                    elif direction == "short" and candle_close >= box["low"]:
-                        print(f"   ⏭️  {asset}: Mid-Price unter Box, aber 5m-Candle Close >= Box Low -- Skip")
-                        log_skip("candle_not_confirmed", asset, current_session, {
-                            "direction": "short",
-                            "candle_close": candle_close,
-                            "box_low": box["low"],
-                        })
-                        continue
-
-                    # Volume-Berechnung (nur für Logging, kein Filter)
-                    volume_at_breakout = last_closed.get("volume", 0.0)
-                    past_volumes = [c["volume"] for c in candles_5m[:-2] if c.get("volume", 0) > 0]
-                    if past_volumes:
-                        volume_avg_20 = sum(past_volumes) / len(past_volumes)
-                        volume_ratio = volume_at_breakout / volume_avg_20 if volume_avg_20 > 0 else 0.0
-            except Exception as e:
-                print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
-
-            box_range = box["high"] - box["low"]
-            return {
-                "asset": asset,
+        # Late-Entry-Guard: Preis darf maximal 2x Box-Range über/unter Breakout-Level liegen
+        breakout_dist = abs(current_price - (box["high"] if direction == "long" else box["low"]))
+        max_dist = box_range * MAX_BREAKOUT_DISTANCE_RATIO
+        if breakout_dist > max_dist:
+            print(f"   ⏭️  {asset}: Breakout zu spät (${breakout_dist:.4f} > {MAX_BREAKOUT_DISTANCE_RATIO}x Range=${max_dist:.4f}) – übersprungen")
+            log_skip("late_entry", asset, current_session, {
                 "direction": direction,
-                "current_price": current_price,
-                "box_high": box["high"],
-                "box_low": box["low"],
-                "box_range": box_range,
-                "box_age_min": round(age_min, 1),
-                "breakout_distance": abs(current_price - (box["high"] if direction == "long" else box["low"])),
-                "volume_at_breakout": round(volume_at_breakout, 2),
-                "volume_avg_20": round(volume_avg_20, 2),
-                "volume_ratio": round(volume_ratio, 3),
-            }, positions
+                "breakout_dist": round(breakout_dist, 6),
+                "box_range": round(box_range, 6),
+                "ratio": round(breakout_dist / box_range, 3) if box_range else None,
+            })
+            continue
+
+        # Candle-Close Confirmation + Volume-Daten für Logging
+        # 21 Candles: 20 für Volume-Durchschnitt + 1 aktuelle (nicht abgeschlossen)
+        volume_at_breakout = 0.0
+        volume_avg_20 = 0.0
+        volume_ratio = 0.0
+        try:
+            candles_5m = client.get_candles(asset, interval="5m", limit=21)
+            if candles_5m and len(candles_5m) >= 2:
+                last_closed = candles_5m[-2]
+                candle_close = last_closed["close"]
+                if direction == "long" and candle_close <= box["high"]:
+                    print(f"   ⏭️  {asset}: Mid-Price ueber Box, aber 5m-Candle Close <= Box High -- Skip")
+                    log_skip("candle_not_confirmed", asset, current_session, {
+                        "direction": "long",
+                        "candle_close": candle_close,
+                        "box_high": box["high"],
+                    })
+                    continue
+                elif direction == "short" and candle_close >= box["low"]:
+                    print(f"   ⏭️  {asset}: Mid-Price unter Box, aber 5m-Candle Close >= Box Low -- Skip")
+                    log_skip("candle_not_confirmed", asset, current_session, {
+                        "direction": "short",
+                        "candle_close": candle_close,
+                        "box_low": box["low"],
+                    })
+                    continue
+
+                # Volume-Berechnung (nur für Logging, kein Filter)
+                volume_at_breakout = last_closed.get("volume", 0.0)
+                past_volumes = [c["volume"] for c in candles_5m[:-2] if c.get("volume", 0) > 0]
+                if past_volumes:
+                    volume_avg_20 = sum(past_volumes) / len(past_volumes)
+                    volume_ratio = volume_at_breakout / volume_avg_20 if volume_avg_20 > 0 else 0.0
+        except Exception as e:
+            print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
+
+        box_range = box["high"] - box["low"]
+        return {
+            "asset": asset,
+            "direction": direction,
+            "current_price": current_price,
+            "box_high": box["high"],
+            "box_low": box["low"],
+            "box_range": box_range,
+            "box_age_min": round(age_min, 1),
+            "breakout_distance": abs(current_price - (box["high"] if direction == "long" else box["low"])),
+            "volume_at_breakout": round(volume_at_breakout, 2),
+            "volume_avg_20": round(volume_avg_20, 2),
+            "volume_ratio": round(volume_ratio, 3),
+        }, positions
 
     return None, positions
 
