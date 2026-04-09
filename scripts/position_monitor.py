@@ -419,6 +419,27 @@ def main():
             new_state["be_applied"] = True
     else:
         print("\n⏸️  Keine offenen Positionen")
+        # Orphaned-Trade-Detection: trades.json auf "offen" Einträge prüfen
+        # die keine entsprechende Position auf Bitget mehr haben
+        if os.path.exists(TRADES_FILE):
+            try:
+                with open(TRADES_FILE, 'r') as f:
+                    all_trades = json.load(f)
+                orphaned = [
+                    t for t in all_trades
+                    if not t.get("exit_timestamp") and t.get("exit_reason") != "ORPHANED"
+                ]
+                if orphaned:
+                    for ot in orphaned:
+                        asset = ot.get("asset", "?")
+                        ts = ot.get("timestamp", "?")[:10]
+                        print(f"   ⚠️  ORPHANED TRADE: {asset} {ot.get('direction','').upper()} vom {ts} – kein Bitget-Match")
+                        send_telegram_notification(
+                            f"⚠️ APEX: Orphaned Trade gefunden – {asset} {ot.get('direction','').upper()} vom {ts} "
+                            f"hat keine offene Position auf Bitget. Bitte manuell prüfen."
+                        )
+            except Exception as e:
+                print(f"   ⚠️  Orphaned-Check fehlgeschlagen: {e}")
 
     save_state(new_state)
     return current_count
