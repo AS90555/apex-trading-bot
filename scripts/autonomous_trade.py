@@ -543,12 +543,22 @@ def scan_for_breakouts(client):
             if candles_5m and len(candles_5m) >= 2:
                 last_closed = candles_5m[-2]
                 candle_close = last_closed["close"]
+
+                # Volume-Berechnung vor Candle-Check – damit auch candle_not_confirmed
+                # Skips das Volume-Ratio im Skip-Log haben (für spätere Filterauswertung).
+                volume_at_breakout = last_closed.get("volume", 0.0)
+                past_volumes = [c["volume"] for c in candles_5m[:-2] if c.get("volume", 0) > 0]
+                if past_volumes:
+                    volume_avg_20 = sum(past_volumes) / len(past_volumes)
+                    volume_ratio = volume_at_breakout / volume_avg_20 if volume_avg_20 > 0 else 0.0
+
                 if direction == "long" and candle_close <= box["high"]:
                     print(f"   ⏭️  {asset}: Mid-Price ueber Box, aber 5m-Candle Close <= Box High -- Skip")
                     log_skip("candle_not_confirmed", asset, current_session, {
                         "direction": "long",
                         "candle_close": candle_close,
                         "box_high": box["high"],
+                        "volume_ratio": round(volume_ratio, 3),
                     })
                     continue
                 elif direction == "short" and candle_close >= box["low"]:
@@ -557,15 +567,9 @@ def scan_for_breakouts(client):
                         "direction": "short",
                         "candle_close": candle_close,
                         "box_low": box["low"],
+                        "volume_ratio": round(volume_ratio, 3),
                     })
                     continue
-
-                # Volume-Berechnung (nur für Logging, kein Filter)
-                volume_at_breakout = last_closed.get("volume", 0.0)
-                past_volumes = [c["volume"] for c in candles_5m[:-2] if c.get("volume", 0) > 0]
-                if past_volumes:
-                    volume_avg_20 = sum(past_volumes) / len(past_volumes)
-                    volume_ratio = volume_at_breakout / volume_avg_20 if volume_avg_20 > 0 else 0.0
         except Exception as e:
             print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
 
