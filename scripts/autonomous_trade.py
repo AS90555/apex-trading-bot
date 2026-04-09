@@ -47,6 +47,29 @@ BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
 LOCK_FILE = os.path.join(DATA_DIR, "autonomous_trade.lock")
 HWM_FILE = os.path.join(DATA_DIR, "high_water_mark.json")
+SKIP_LOG_FILE = os.path.join(DATA_DIR, "skip_log.jsonl")
+
+
+def log_skip(reason: str, asset: str = None, session: str = None, context: dict = None):
+    """Append strukturierter Skip-Eintrag in data/skip_log.jsonl (append-only JSONL).
+
+    reason: position_open | box_too_old | box_missing_ts | box_too_small | price_fetch_fail |
+            no_breakout | late_entry | candle_not_confirmed | already_traded |
+            kill_switch | no_session
+    """
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        entry = {
+            "ts": datetime.now().isoformat(),
+            "session": session if session is not None else get_current_session(),
+            "asset": asset,
+            "reason": reason,
+            "context": context or {},
+        }
+        with open(SKIP_LOG_FILE, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        print(f"⚠️  Skip-Log Schreibfehler: {e}")
 
 
 def load_boxes():
@@ -157,6 +180,10 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     else:
         stop_loss = box_high + sl_buffer
 
+    # Breakout-Trigger-Preis (Box-Grenze + Threshold) – Basis für Slippage-Messung
+    bo_threshold = BREAKOUT_THRESHOLD.get(asset, entry_price * 0.002)
+    trigger_price = (box_high + bo_threshold) if direction == "long" else (box_low - bo_threshold)
+
     # Risk: live Balance verwenden falls übergeben, sonst Fallback
     effective_risk = risk_usd if risk_usd is not None else MAX_RISK_USD
 
@@ -209,6 +236,13 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         return {"success": False, "error": order_result.error}
 
     actual_entry = order_result.avg_price
+
+    # Slippage: wie weit lag der Fill über (long) / unter (short) dem Breakout-Trigger?
+    # Positive Werte = schlechter als Trigger (wir haben teurer gekauft / billiger verkauft).
+    if direction == "long":
+        slippage_usd = round(actual_entry - trigger_price, 6)
+    else:
+        slippage_usd = round(trigger_price - actual_entry, 6)
 
     # SL mit tatsächlichem Entry neu berechnen
     risk_actual = abs(actual_entry - stop_loss)
@@ -353,6 +387,9 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "risk_usd": effective_risk,
         "risk_per_unit": round(abs(actual_entry - stop_loss), 6),
         "ratio": "Split 1:1 + Trailing(2R, 0.5R-Offset)",
+        # Slippage (Fill vs. erwarteter Breakout-Trigger)
+        "trigger_price": round(trigger_price, 6),
+        "slippage_usd": slippage_usd,
         # Box-Kontext
         "box_high": ctx.get("box_high", box_high),
         "box_low": ctx.get("box_low", box_low),
@@ -427,9 +464,12 @@ def scan_for_breakouts(client):
     position_assets = [p.coin for p in positions]
     now = datetime.now()
 
+    current_session = get_current_session()
+
     for asset in ASSET_PRIORITY:
         if asset in position_assets:
             print(f"   ⏭️  {asset}: übersprungen (Position bereits offen)")
+            log_skip("position_open", asset, current_session)
             continue
         if asset not in boxes:
             continue
@@ -442,9 +482,14 @@ def scan_for_breakouts(client):
             age_min = (now - box_ts).total_seconds() / 60
             if age_min > MAX_BOX_AGE_MIN:
                 print(f"   ⏭️  {asset}: Box {age_min:.0f} Min alt (Max {MAX_BOX_AGE_MIN} Min) – übersprungen")
+                log_skip("box_too_old", asset, current_session, {
+                    "age_min": round(age_min, 1),
+                    "max_age_min": MAX_BOX_AGE_MIN,
+                })
                 continue
         except (KeyError, ValueError):
             print(f"   ⏭️  {asset}: Box ohne Timestamp – übersprungen (Sicherheit)")
+            log_skip("box_missing_ts", asset, current_session)
             continue
 
         # Range-Check: Box muss Mindestbreite haben
@@ -452,14 +497,28 @@ def scan_for_breakouts(client):
         min_range = MIN_BOX_RANGE.get(asset, box["high"] * 0.0005)
         if box_range < min_range:
             print(f"   ⏭️  {asset}: Box Range ${box_range:.4f} zu klein (Min ${min_range:.4f}) – übersprungen")
+            log_skip("box_too_small", asset, current_session, {
+                "box_range": round(box_range, 6),
+                "min_range": round(min_range, 6),
+            })
             continue
 
         try:
             current_price = client.get_price(asset)
         except Exception as e:
             print(f"   ⚠️  {asset}: Preisabfrage fehlgeschlagen ({e}) – übersprungen")
+            log_skip("price_fetch_fail", asset, current_session, {"error": str(e)[:200]})
             continue
         direction = check_breakout(asset, current_price, box["high"], box["low"])
+
+        if not direction:
+            log_skip("no_breakout", asset, current_session, {
+                "price": current_price,
+                "box_high": box["high"],
+                "box_low": box["low"],
+                "box_range": round(box_range, 6),
+            })
+            continue
 
         if direction:
             # Late-Entry-Guard: Preis darf maximal 2x Box-Range über/unter Breakout-Level liegen
@@ -467,6 +526,12 @@ def scan_for_breakouts(client):
             max_dist = box_range * MAX_BREAKOUT_DISTANCE_RATIO
             if breakout_dist > max_dist:
                 print(f"   ⏭️  {asset}: Breakout zu spät (${breakout_dist:.4f} > {MAX_BREAKOUT_DISTANCE_RATIO}x Range=${max_dist:.4f}) – übersprungen")
+                log_skip("late_entry", asset, current_session, {
+                    "direction": direction,
+                    "breakout_dist": round(breakout_dist, 6),
+                    "box_range": round(box_range, 6),
+                    "ratio": round(breakout_dist / box_range, 3) if box_range else None,
+                })
                 continue
 
             # Candle-Close Confirmation + Volume-Daten für Logging
@@ -481,9 +546,19 @@ def scan_for_breakouts(client):
                     candle_close = last_closed["close"]
                     if direction == "long" and candle_close <= box["high"]:
                         print(f"   ⏭️  {asset}: Mid-Price ueber Box, aber 5m-Candle Close <= Box High -- Skip")
+                        log_skip("candle_not_confirmed", asset, current_session, {
+                            "direction": "long",
+                            "candle_close": candle_close,
+                            "box_high": box["high"],
+                        })
                         continue
                     elif direction == "short" and candle_close >= box["low"]:
                         print(f"   ⏭️  {asset}: Mid-Price unter Box, aber 5m-Candle Close >= Box Low -- Skip")
+                        log_skip("candle_not_confirmed", asset, current_session, {
+                            "direction": "short",
+                            "candle_close": candle_close,
+                            "box_low": box["low"],
+                        })
                         continue
 
                     # Volume-Berechnung (nur für Logging, kein Filter)
@@ -536,6 +611,7 @@ def main():
         session = get_current_session()
         if not session:
             print("⚠️  Außerhalb der Trading-Sessions")
+            log_skip("no_session", None, None, {"hour": datetime.now().hour})
             print("NO_REPLY")
             return
 
@@ -545,6 +621,7 @@ def main():
         if has_traded_today_in_session(session):
             msg = f"⏭️ APEX {session.upper()}: Skip – bereits getradet"
             print(f"\n✅ {msg}")
+            log_skip("already_traded", None, session)
             send_telegram_message(msg)
             print("NO_REPLY")
             return
@@ -589,6 +666,11 @@ def main():
                 f"Keine neuen Trades bis manuell freigegeben."
             )
             print(f"\n🛑 KILL-SWITCH: Balance ${balance:.2f} < ${kill_threshold:.2f} (HWM ${hwm:.2f}) – Stop!")
+            log_skip("kill_switch", breakout["asset"], session, {
+                "balance": round(balance, 2),
+                "hwm": round(hwm, 2),
+                "kill_threshold": round(kill_threshold, 2),
+            })
             send_telegram_message(msg)
             print("NO_REPLY")
             return

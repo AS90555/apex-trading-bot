@@ -382,6 +382,38 @@ class BitgetClient:
             print(f"⚠️  Fill-History Fehler: {e}")
             return []
 
+    def get_funding_paid(self, coin: str, since_ms: int) -> Optional[float]:
+        """Summe der Funding-Kosten für ein Asset seit `since_ms` (in USDT).
+
+        Positives Vorzeichen = Funding gezahlt (Kosten), negatives = Funding erhalten.
+        Returns None wenn API-Call fehlschlägt oder Credentials fehlen.
+        """
+        if not self.is_ready or not since_ms:
+            return None
+        try:
+            # Bitget v2 Account-Bill: businessType=contract_settle_fee sind Funding-Verrechnungen.
+            params = {
+                "productType": PRODUCT_TYPE,
+                "coin": MARGIN_COIN,
+                "businessType": "contract_settle_fee",
+                "symbol": self._symbol(coin),
+                "startTime": str(since_ms),
+                "endTime": str(int(time.time() * 1000)),
+                "limit": "100",
+            }
+            data = self._get("/api/v2/mix/account/bill", params, auth=True)
+            bills = data.get("bills", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            total = 0.0
+            for bill in bills:
+                # Bitget liefert 'amount' (signed): negativ = gezahlt, positiv = erhalten.
+                # Wir normalisieren: positives Ergebnis = Kosten.
+                amount = float(bill.get("amount") or bill.get("fee") or 0)
+                total += -amount  # flip Vorzeichen: Kosten positiv
+            return round(total, 6)
+        except Exception as e:
+            print(f"⚠️  Funding-History Fehler: {e}")
+            return None
+
     # ========================
     # LEVERAGE
     # ========================

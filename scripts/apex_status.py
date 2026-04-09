@@ -26,6 +26,11 @@ LOGS_DIR = os.path.join(PROJECT_DIR, "logs")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
 STATE_FILE = os.path.join(DATA_DIR, "monitor_state.json")
 PNL_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
+PENDING_NOTES_FILE = os.path.join(DATA_DIR, "pending_notes.jsonl")
+DEEP_REVIEW_FLAG_FILE = os.path.join(DATA_DIR, "deep_review_pending.flag")
+SKIP_LOG_FILE = os.path.join(DATA_DIR, "skip_log.jsonl")
+HYPOTHESIS_LOG_FILE = "/root/.claude/projects/-root-apex-trading-bot/memory/hypothesis_log.md"
+DEEP_REVIEW_THRESHOLD = 10
 
 sys.path.insert(0, PROJECT_DIR)
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
@@ -76,6 +81,68 @@ def load_pnl():
             return json.load(f)
     except Exception:
         return {}
+
+
+def count_pending_notes() -> int:
+    """Zähle pending Trade-Notes, die beim Session-Start verarbeitet werden müssen."""
+    if not os.path.exists(PENDING_NOTES_FILE):
+        return 0
+    try:
+        with open(PENDING_NOTES_FILE) as f:
+            return sum(1 for line in f if line.strip())
+    except Exception:
+        return 0
+
+
+def is_deep_review_pending() -> bool:
+    return os.path.exists(DEEP_REVIEW_FLAG_FILE)
+
+
+def load_open_hypotheses():
+    """Parsed hypothesis_log.md und gibt eine Liste offener Hypothesen zurück.
+
+    Erkennt Einträge im Format:
+        ## H-NNN · YYYY-MM-DD · Titel
+        - **Type:** ...
+        - **Status:** open
+        - **Deadline:** ...
+    """
+    if not os.path.exists(HYPOTHESIS_LOG_FILE):
+        return []
+    try:
+        with open(HYPOTHESIS_LOG_FILE) as f:
+            text = f.read()
+    except Exception:
+        return []
+
+    import re
+    entries = []
+    # Split in Blöcke die mit "## H-" beginnen
+    blocks = re.split(r"\n(?=## H-)", text)
+    for block in blocks:
+        if not block.lstrip().startswith("## H-"):
+            continue
+        header_match = re.match(r"##\s+(H-\d+)\s*·\s*([\d-]+)\s*·\s*(.+?)(?:\n|$)", block)
+        if not header_match:
+            continue
+        hid, date, title = header_match.groups()
+
+        status_match = re.search(r"\*\*Status:\*\*\s*(\w+)", block)
+        type_match = re.search(r"\*\*Type:\*\*\s*(\w+)", block)
+        deadline_match = re.search(r"\*\*Deadline:\*\*\s*(.+?)(?:\n|$)", block)
+
+        status = (status_match.group(1) if status_match else "").strip().lower()
+        if status != "open":
+            continue
+
+        entries.append({
+            "id": hid,
+            "date": date,
+            "title": title.strip(),
+            "type": (type_match.group(1) if type_match else "").strip(),
+            "deadline": (deadline_match.group(1) if deadline_match else "").strip(),
+        })
+    return entries
 
 
 def get_session():
@@ -178,6 +245,44 @@ def print_trade_history():
         print(f"   {ts:<17} {asset:<5} {direction:<6} ${entry:>9,.2f} ${sl:>9,.2f} {vol_str:>9} {pnl_str:>9} {r_str:>6} {reason}")
 
 
+def print_pending_events():
+    """Pending Trade-Notes + Deep-Review Flag anzeigen – Claude soll darauf reagieren."""
+    notes = count_pending_notes()
+    deep_review = is_deep_review_pending()
+    pnl = load_pnl()
+    tslr = pnl.get("trades_since_last_review", 0)
+    trades_left = max(0, DEEP_REVIEW_THRESHOLD - tslr)
+
+    # Nur drucken wenn etwas zu melden ist, sonst kurzer Status
+    if notes == 0 and not deep_review and tslr == 0:
+        return
+
+    print(f"\n📝 PENDING EVENTS:")
+    if notes > 0:
+        word = "Note wartet" if notes == 1 else "Notes warten"
+        print(f"   • {notes} Trade-{word} auf Verarbeitung → memory/trade_log.md")
+    if deep_review:
+        print(f"   • ⚠️  Deep Review FÄLLIG ({tslr}/{DEEP_REVIEW_THRESHOLD} Trades) → memory/reviews/")
+    elif tslr > 0:
+        print(f"   • Deep Review: {tslr}/{DEEP_REVIEW_THRESHOLD} Trades (noch {trades_left} bis fällig)")
+
+
+def print_hypotheses():
+    """Offene Hypothesen aus hypothesis_log.md anzeigen."""
+    entries = load_open_hypotheses()
+    if not entries:
+        return
+
+    print(f"\n🧪 OFFENE HYPOTHESEN ({len(entries)}):")
+    for e in entries[:10]:  # max 10 um Output nicht zu fluten
+        deadline = e["deadline"][:60] if e["deadline"] else "—"
+        title = e["title"][:65]
+        print(f"   {e['id']} [{e['type']}] {title}")
+        print(f"          Deadline: {deadline}")
+    if len(entries) > 10:
+        print(f"   … {len(entries) - 10} weitere in hypothesis_log.md")
+
+
 def print_system_status():
     print(f"\n⚙️  SYSTEM STATUS:")
 
@@ -273,6 +378,8 @@ def main():
 
     print_api_status()
     print_trade_history()
+    print_pending_events()
+    print_hypotheses()
     print_claude_context()
     print_system_status()
 

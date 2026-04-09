@@ -18,6 +18,9 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(PROJECT_DIR, "data")
 STATE_FILE = os.path.join(DATA_DIR, "monitor_state.json")
 PNL_TRACKER_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
+PENDING_NOTES_FILE = os.path.join(DATA_DIR, "pending_notes.jsonl")
+DEEP_REVIEW_FLAG_FILE = os.path.join(DATA_DIR, "deep_review_pending.flag")
+DEEP_REVIEW_THRESHOLD = 10  # Alle 10 Trades Deep Review triggern
 
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
@@ -80,6 +83,39 @@ def send_telegram_notification(message):
         send_telegram_message(message)
     except Exception as e:
         print(f"⚠️  Telegram notification error: {e}")
+
+
+def append_pending_note(trade: dict):
+    """Schreibt einen Roh-Event für einen geschlossenen Trade nach data/pending_notes.jsonl.
+
+    Claude verarbeitet diese Einträge beim nächsten Session-Start und transformiert
+    sie in memory/trade_log.md Kurz-Notizen. Append-only JSONL.
+    """
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        note = {
+            "ts": trade.get("exit_timestamp") or datetime.now().isoformat(),
+            "asset": trade.get("asset"),
+            "session": trade.get("session"),
+            "direction": trade.get("direction"),
+            "entry_price": trade.get("entry_price"),
+            "exit_price": trade.get("exit_price"),
+            "pnl_usd": trade.get("exit_pnl_usd"),
+            "pnl_r": trade.get("exit_pnl_r"),
+            "exit_reason": trade.get("exit_reason"),
+            "be_applied": trade.get("be_applied", False),
+            "box_range": trade.get("box_range"),
+            "box_age_min": trade.get("box_age_min"),
+            "breakout_distance": trade.get("breakout_distance"),
+            "volume_ratio": trade.get("volume_ratio"),
+            "slippage_usd": trade.get("slippage_usd"),
+            "funding_paid_usd": trade.get("funding_paid_usd"),
+        }
+        with open(PENDING_NOTES_FILE, "a") as f:
+            f.write(json.dumps(note) + "\n")
+        print(f"   📨 Pending-Note geschrieben für {note['asset']}")
+    except Exception as e:
+        print(f"⚠️  Pending-Note Schreibfehler: {e}")
 
 
 def load_last_trade(coin: str) -> dict:
@@ -229,14 +265,19 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
     return True
 
 
-def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_applied: bool):
-    """Schreibt Exit-Daten zurück in das passende Trade-Entry in trades.json."""
+def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_applied: bool, funding_paid_usd=None):
+    """Schreibt Exit-Daten zurück in das passende Trade-Entry in trades.json.
+
+    funding_paid_usd: Optional float – Summe der gezahlten Funding-Kosten über die Haltedauer.
+                      None wenn Bitget-API-Abfrage fehlschlug oder nicht versucht.
+    """
     if not os.path.exists(TRADES_FILE):
         return
     try:
         with open(TRADES_FILE, 'r') as f:
             trades = json.load(f)
 
+        updated_trade = None
         for i in range(len(trades) - 1, -1, -1):
             t = trades[i]
             if t.get("asset") == coin and not t.get("exit_timestamp"):
@@ -252,6 +293,8 @@ def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_ap
                 trades[i]["exit_pnl_r"] = pnl_r
                 trades[i]["exit_reason"] = exit_reason
                 trades[i]["be_applied"] = be_applied
+                trades[i]["funding_paid_usd"] = funding_paid_usd
+                updated_trade = trades[i]
                 break
 
         # Atomares Schreiben: tmp-Datei + rename verhindert korrupte JSON bei Absturz
@@ -259,7 +302,12 @@ def update_trade_with_exit(coin: str, total_pnl: float, exit_price: float, be_ap
         with open(tmp_file, 'w') as f:
             json.dump(trades, f, indent=2)
         os.replace(tmp_file, TRADES_FILE)
-        print(f"   📝 Trade-Exit geloggt: {coin} | PnL ${total_pnl:.2f} ({pnl_r}R) | {exit_reason}")
+        funding_str = f" | Funding ${funding_paid_usd:+.4f}" if funding_paid_usd is not None else ""
+        print(f"   📝 Trade-Exit geloggt: {coin} | PnL ${total_pnl:.2f} ({pnl_r}R) | {exit_reason}{funding_str}")
+
+        # Event für Claude-Session-Start: Pending Note für trade_log.md erzeugen
+        if updated_trade is not None:
+            append_pending_note(updated_trade)
     except Exception as e:
         print(f"⚠️  Trade-Exit Logging Fehler: {e}")
 
@@ -268,33 +316,43 @@ def update_pnl_tracker(pnl):
     """Update P&L tracker with realized profit"""
     if not os.path.exists(PNL_TRACKER_FILE):
         return
-    
+
     try:
         with open(PNL_TRACKER_FILE, 'r') as f:
             tracker = json.load(f)
     except (json.JSONDecodeError, OSError):
         return
-    
+
     # Update realized P&L
     tracker["realized_pnl"] = tracker.get("realized_pnl", 0) + pnl
     tracker["total_pnl"] = tracker["realized_pnl"] + tracker.get("unrealized_pnl", 0)
-    
+
     # Update trade counts
     if pnl > 0:
         tracker["winning_trades"] = tracker.get("winning_trades", 0) + 1
     else:
         tracker["losing_trades"] = tracker.get("losing_trades", 0) + 1
-    
+
     tracker["total_trades"] = tracker.get("total_trades", 0) + 1
     tracker["last_updated"] = datetime.now().isoformat()
-    
+
+    # Deep-Review Counter: alle DEEP_REVIEW_THRESHOLD Trades Flag setzen
+    tracker["trades_since_last_review"] = tracker.get("trades_since_last_review", 0) + 1
+    if tracker["trades_since_last_review"] >= DEEP_REVIEW_THRESHOLD:
+        try:
+            with open(DEEP_REVIEW_FLAG_FILE, "w") as f:
+                f.write(datetime.now().isoformat() + "\n")
+            print(f"\n🧪 Deep Review fällig – Flag gesetzt ({tracker['trades_since_last_review']} Trades seit letztem Review)")
+        except Exception as e:
+            print(f"⚠️  Deep-Review Flag konnte nicht gesetzt werden: {e}")
+
     # Check milestones
     for milestone_name, milestone in tracker.get("milestones", {}).items():
         if not milestone.get("reached", False):
             if tracker["total_pnl"] >= milestone["target"]:
                 milestone["reached"] = True
                 print(f"\n🎉 MILESTONE REACHED: +${milestone['target']} → Bonus: +${milestone['bonus']} USDC!")
-    
+
     # Atomar: tmp + replace verhindert korrupte JSON bei Crash mid-write
     tmp_file = PNL_TRACKER_FILE + ".tmp"
     with open(tmp_file, 'w') as f:
@@ -354,9 +412,12 @@ def main():
             send_telegram_notification(message)
             update_pnl_tracker(total_pnl)
 
+            # Funding-Kosten über die Haltedauer aggregieren (None bei API-Fehler)
+            funding_paid = client.get_funding_paid(coin, opened_at_ms) if opened_at_ms else None
+
             # Exit-Daten zurück in trades.json schreiben
             be_was_applied = state.get("be_applied", False)
-            update_trade_with_exit(coin, total_pnl, exit_price, be_was_applied)
+            update_trade_with_exit(coin, total_pnl, exit_price, be_was_applied, funding_paid)
         else:
             print("⚠️  Keine Fill-Daten verfügbar")
             send_telegram_notification("🎯 APEX: Position geschlossen, aber keine Trade-Details gefunden.")

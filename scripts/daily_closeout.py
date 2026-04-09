@@ -20,6 +20,7 @@ DATA_DIR = os.path.join(PROJECT_DIR, "data")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
 CAPITAL_FILE = os.path.join(DATA_DIR, "capital_tracking.json")
 PNL_TRACKER_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
+HWM_FILE = os.path.join(DATA_DIR, "high_water_mark.json")
 
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
@@ -61,6 +62,62 @@ def get_pnl_tracker():
         return json.load(f)
 
 
+def append_drawdown_snapshot(balance: float):
+    """Schreibt einen täglichen Balance/HWM/DD-Snapshot in high_water_mark.json.
+
+    Struktur:
+      {
+        "hwm": <float>,                     # legacy, bleibt für Kompatibilität
+        "updated": <iso>,                   # legacy
+        "history": [
+          {"date": "YYYY-MM-DD", "balance": .., "hwm": .., "dd_pct": ..},
+          ...
+        ]
+      }
+    Pro Kalendertag genau ein Eintrag (idempotent – überschreibt bei wiederholtem Aufruf).
+    """
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        state = {"hwm": CAPITAL, "updated": None, "history": []}
+        if os.path.exists(HWM_FILE):
+            try:
+                with open(HWM_FILE, "r") as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    state.update(loaded)
+                    if "history" not in state or not isinstance(state["history"], list):
+                        state["history"] = []
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"⚠️  high_water_mark.json unlesbar ({e}) – re-initialisiere")
+
+        old_hwm = float(state.get("hwm") or CAPITAL)
+        new_hwm = max(old_hwm, float(balance))
+        dd_pct = round(((new_hwm - balance) / new_hwm) * 100, 3) if new_hwm > 0 else 0.0
+
+        today = datetime.now().date().isoformat()
+        snapshot = {
+            "date": today,
+            "balance": round(float(balance), 4),
+            "hwm": round(new_hwm, 4),
+            "dd_pct": dd_pct,
+        }
+
+        # Idempotenz: existierenden Tages-Eintrag überschreiben statt duplizieren
+        history = [h for h in state["history"] if h.get("date") != today]
+        history.append(snapshot)
+        state["history"] = history
+        state["hwm"] = round(new_hwm, 4)
+        state["updated"] = datetime.now().isoformat()
+
+        tmp_file = HWM_FILE + ".tmp"
+        with open(tmp_file, "w") as f:
+            json.dump(state, f, indent=2)
+        os.replace(tmp_file, HWM_FILE)
+        print(f"📉 Drawdown-Snapshot: {snapshot}")
+    except Exception as e:
+        print(f"⚠️  Drawdown-Snapshot Fehler: {e}")
+
+
 def run_daily_closeout():
     """Erstelle und sende Tages-Report"""
     client = BitgetClient(dry_run=DRY_RUN)
@@ -71,6 +128,9 @@ def run_daily_closeout():
     balance = client.get_balance()
     mode = " [DRY RUN]" if DRY_RUN else ""
     lines.append(f"\U0001f4b0 Balance: ${balance:,.2f} USDT{mode}")
+
+    # Drawdown-Timeline pflegen (ein Snapshot pro Kalendertag, idempotent)
+    append_drawdown_snapshot(balance)
 
     # Gesamt P&L
     capital = get_capital_tracking()
