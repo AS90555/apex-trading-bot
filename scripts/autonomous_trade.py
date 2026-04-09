@@ -152,6 +152,33 @@ def log_trade(trade_data):
     os.replace(tmp_file, TRADES_FILE)
 
 
+def _calc_ema(closes: list, period: int) -> float:
+    """Exponential Moving Average (Standard EMA, k=2/(period+1))."""
+    if len(closes) < period:
+        return 0.0
+    k = 2 / (period + 1)
+    ema = sum(closes[:period]) / period
+    for c in closes[period:]:
+        ema = c * k + ema * (1 - k)
+    return ema
+
+
+def _calc_atr(candles: list, period: int = 14) -> float:
+    """Average True Range mit Wilder-Smoothing (RMA)."""
+    if len(candles) < period + 1:
+        return 0.0
+    trs = []
+    for i in range(1, len(candles)):
+        h = candles[i]["high"]
+        l = candles[i]["low"]
+        pc = candles[i - 1]["close"]
+        trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+    atr = sum(trs[:period]) / period
+    for tr in trs[period:]:
+        atr = (atr * (period - 1) + tr) / period
+    return atr
+
+
 def check_breakout(asset, current_price, box_high, box_low):
     """
     Prüfe ob Asset aus Box ausgebrochen ist.
@@ -240,6 +267,19 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         return {"success": False, "error": order_result.error}
 
     actual_entry = order_result.avg_price
+
+    # Market-Structure beim Entry: OI, Long/Short Ratio, Taker-Buy-Ratio.
+    # Nur geloggt – kein Filter. Datenbasis für Spur 3 Analyse nach 30 Trades.
+    market_structure = {}
+    try:
+        market_structure = {
+            "open_interest": client.get_open_interest(asset),
+            "long_short_ratio": client.get_long_short_ratio(asset),
+            "taker_buy_ratio": client.get_taker_ratio(asset),
+        }
+        print(f"   📊 Market-Structure: OI={market_structure['open_interest']:.0f} | L/S={market_structure['long_short_ratio']:.3f} | Taker-Buy={market_structure['taker_buy_ratio']:.3f}")
+    except Exception as e:
+        print(f"   ⚠️  Market-Structure Fetch fehlgeschlagen: {e}")
 
     # Slippage: wie weit lag der Fill über (long) / unter (short) dem Breakout-Trigger?
     # Positive Werte = schlechter als Trigger (wir haben teurer gekauft / billiger verkauft).
@@ -401,6 +441,10 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "volume_at_breakout": ctx.get("volume_at_breakout"),
         "volume_avg_20": ctx.get("volume_avg_20"),
         "volume_ratio": ctx.get("volume_ratio"),
+        # Trend-Kontext (EMA-200/50, ATR-14, trend_direction, atr_ratio)
+        "trend_context": ctx.get("trend_context", {}),
+        # Market-Structure beim Entry (OI, Long/Short Ratio, Taker-Buy-Ratio)
+        "market_structure": market_structure,
         # Meta
         "dry_run": DRY_RUN,
     })
@@ -574,6 +618,29 @@ def scan_for_breakouts(client):
             print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
 
         box_range = box["high"] - box["low"]
+
+        # Trend-Kontext: EMA-200, EMA-50, ATR-14 aus 15m-Candles berechnen.
+        # 210 Kerzen = genug Warmup für EMA-200 (braucht min 200 Werte).
+        # Nur geloggt, kein Filter – Datenbasis für spätere Hypothesen (H-001 Spur).
+        trend_context = {}
+        try:
+            candles_15m = client.get_candles(asset, interval="15m", limit=210)
+            if len(candles_15m) >= 200:
+                closes = [c["close"] for c in candles_15m]
+                ema_200 = _calc_ema(closes, 200)
+                ema_50  = _calc_ema(closes, 50)
+                atr_14  = _calc_atr(candles_15m, 14)
+                trend_context = {
+                    "ema_200": round(ema_200, 4),
+                    "ema_50":  round(ema_50, 4),
+                    "atr_14":  round(atr_14, 4),
+                    "trend_direction": "above" if closes[-1] > ema_200 else "below",
+                    "atr_ratio": round(box_range / atr_14, 3) if atr_14 > 0 else 0.0,
+                }
+                print(f"   📐 Trend-Kontext: EMA200={ema_200:.4f} | ATR14={atr_14:.4f} | Richtung={trend_context['trend_direction']} | Box/ATR={trend_context['atr_ratio']}")
+        except Exception as e:
+            print(f"   ⚠️  {asset}: EMA/ATR-Berechnung fehlgeschlagen ({e})")
+
         return {
             "asset": asset,
             "direction": direction,
@@ -586,6 +653,7 @@ def scan_for_breakouts(client):
             "volume_at_breakout": round(volume_at_breakout, 2),
             "volume_avg_20": round(volume_avg_20, 2),
             "volume_ratio": round(volume_ratio, 3),
+            "trend_context": trend_context,
         }, positions
 
     return None, positions

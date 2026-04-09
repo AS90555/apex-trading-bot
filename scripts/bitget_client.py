@@ -416,6 +416,77 @@ class BitgetClient:
             return None
 
     # ========================
+    # MARKET STRUCTURE
+    # ========================
+
+    def get_open_interest(self, coin: str) -> float:
+        """Open Interest in Kontrakten (Gesamt-Markt-Exposure).
+        Steigendes OI während Breakout = echte neue Positionen = stärkeres Signal.
+        Returns 0.0 bei Fehler.
+        """
+        try:
+            data = self._get("/api/v2/mix/market/open-interest", {
+                "symbol": self._symbol(coin),
+                "productType": PRODUCT_TYPE,
+            })
+            items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+            if not items:
+                return 0.0
+            item = items[0]
+            # Bitget liefert openInterestList oder direkt openInterest
+            oi_list = item.get("openInterestList", [])
+            if oi_list:
+                return float(oi_list[0].get("openInterest", 0))
+            return float(item.get("openInterest", 0))
+        except Exception:
+            return 0.0
+
+    def get_long_short_ratio(self, coin: str) -> float:
+        """Account Long/Short Ratio (Anzahl Accounts Long vs Short).
+        > 1.5 = Markt stark long (Contrarian: überhitzt?), < 0.7 = stark short.
+        Returns 0.0 bei Fehler.
+        """
+        try:
+            data = self._get("/api/v2/mix/market/long-short-ratio", {
+                "symbol": self._symbol(coin),
+                "productType": PRODUCT_TYPE,
+                "period": "5m",
+            })
+            items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+            if not items:
+                return 0.0
+            return float(items[0].get("longShortRatio", 0))
+        except Exception:
+            return 0.0
+
+    def get_taker_ratio(self, coin: str) -> float:
+        """Taker Buy Volume / (Buy + Sell) – 0.0 bis 1.0.
+        > 0.55 = aggressive Käufer dominieren (bullish),
+        < 0.45 = aggressive Verkäufer dominieren (bearish).
+        Returns 0.5 bei Fehler (neutral).
+        """
+        try:
+            data = self._get("/api/v2/mix/market/taker-buy-sell-vol", {
+                "symbol": self._symbol(coin),
+                "productType": PRODUCT_TYPE,
+                "period": "5m",
+            })
+            items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+            if not items:
+                return 0.5
+            row = items[0]
+            buy  = float(row.get("buySellRatio", row.get("buyVol", 0)) or 0)
+            # Bitget liefert entweder buySellRatio direkt oder buyVol+sellVol
+            if "buySellRatio" in row:
+                # buySellRatio = buy/(buy+sell), direkt verwendbar
+                return round(float(row["buySellRatio"]), 4)
+            sell = float(row.get("sellVol", 0) or 0)
+            total = buy + sell
+            return round(buy / total, 4) if total > 0 else 0.5
+        except Exception:
+            return 0.5
+
+    # ========================
     # LEVERAGE
     # ========================
 
