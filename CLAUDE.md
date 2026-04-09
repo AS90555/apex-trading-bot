@@ -80,6 +80,61 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-09 Teil 2 – H-002: TP2 Trailing → Statisches TP2 @ 3R (Strategie-Fix)
+
+**Anlass:** Andre wies auf XRP SHORT (2026-04-09 02:30) hin – Trade hatte TP1 gesichert, BE nachgezogen, dann lief Preis 1.53R und drehte komplett zurück Richtung BE. Ohne manuellen Eingriff wäre der Trade bei ~0.5R gelandet.
+
+**Root Cause (zwei überlagerte Bugs):**
+
+1. **Dead Zone zwischen TP1 (1R) und Trailing-Aktivierung (2R):** Wenn Preis nur 1.5R macht und dreht, hat die zweite Hälfte keinen Profit-Mechanismus. BE_SL fängt bei ~Entry – Gewinn-Potenzial verpufft.
+
+2. **Bitget `rangeRate` 1%-Floor tötet den Trailing bei kleinem Kapital:**
+   ```python
+   trail_pct = (risk_actual * 0.5) / actual_entry
+   # XRP:  0.0025 (0.25%) → geclampt auf 1.0%
+   # SOL:  0.00004 (0.004%) → geclampt auf 1.0%
+   # ETH:  0.0000019 (0.0002%) → geclampt auf 1.0%
+   ```
+   Bei 2R-Aktivierung ergibt 1% Trail einen Stop bei ~Entry-Niveau → **identisch zum BE-SL**. Trailing ist strukturell wertlos bei Kapital < ~$500.
+
+**R/R-Analyse (warum das alte System mathematisch ein Verlierer war):**
+
+| Szenario | Altes System | Neues System (Static TP2 @ 3R) |
+|---|---|---|
+| Full Win (Preis → 3R) | +0.5R (TP1) + ~0R (Trail clamped) = **+0.5R** | +0.5R + 1.5R = **+2R** |
+| Partial (1R hit, Reversal) | +0.5R (TP1) + 0R (BE) = **+0.5R** | +0.5R (gleich) |
+| Direct SL | **−1R** | **−1R** |
+
+EV-Rechnung @ 30% Full / 30% Partial / 40% SL:
+- Alt: 0.3·0.5 + 0.3·0.5 + 0.4·(−1) = **−0.1R** ❌ (braucht 67% Winrate zum Break-Even)
+- Neu: 0.3·2 + 0.3·0.5 + 0.4·(−1) = **+0.35R** ✅ (braucht nur 33% Winrate)
+
+**Verbesserung: +0.45R pro Trade.** Selbst im pessimistischen Szenario (20%/30%/50%) ist das neue System noch ~0R (Break-Even) statt −0.25R.
+
+**Implementierung (Tasks 10–16):**
+
+| # | Datei | Änderung |
+|---|-------|----------|
+| 1 | `hypothesis_log.md` | H-002 eingetragen (logic, Validation Gate: 10 Trades / 2026-05-15) |
+| 2 | `autonomous_trade.py` | `trail_pct`/`trailing_activation` → `take_profit_2` (3R statisch), `place_trailing_stop` → `place_take_profit`, log_trade-Dict + return-Dict + print/telegram aktualisiert, `ratio` = "Split 1:1 + 3:1" |
+| 3 | `position_monitor.py` | BE-Failsafe (Trailing-Restore) entfernt – war defensiv für Cancel-Bug, der schon längst gefixt ist. TP1/TP2 sind beide profit_plan und überleben `cancel_tpsl_orders(plan_types=["loss_plan"])` automatisch. |
+| 4 | `bitget_client.py` | `place_trailing_stop()` als **DEPRECATED** markiert (Docstring-Note), Funktion bleibt für v2 DIY-Trailing erhalten. `cancel_tpsl_orders` Docstring angepasst. |
+| 5 | `memory/user_trust_andre.md` | Neue User-Memory: Andre ist Entscheider, ich bin Stratege – R/R-Check Pflicht vor jeder Strategie-Änderung. |
+| 6 | `memory/project_parked_diy_trailing.md` | DIY-Trailing-Idee geparkt – kommt zurück wenn Kapital ≥ $500 oder H-002 verified. |
+
+**Was wir dadurch verlieren:** Die theoretische Fähigkeit des Bitget-Trailing, bei starken Trends über 3R hinaus zu laufen. **Praktisch verlieren wir nichts**, weil der Trailing bei Andres Kapital nie funktioniert hat (siehe Clamp-Rechnung oben).
+
+**Was wir dadurch gewinnen:** Klares, berechenbares R/R (1:2 in Full-Wins), keine Clamping-Edge-Cases, robustes System auch bei niedriger Winrate. Validation über nächste 10 Trades via Deep Review (H-001-Infrastruktur liefert die Daten).
+
+**H-002 Validation-Gates (nach 10 neuen Trades):**
+1. Durchschnitts-R pro Trade ≥ +0.2R?
+2. Mindestens 2 Trades mit ≥1.5R Exit-PnL?
+3. TP2 @ 3R wurde bei ≥1 Trade ausgelöst?
+
+Alle drei ja → `verified`. Null von drei → `rejected`, dann Fallback auf TP2 @ 2R oder 2.5R evaluieren.
+
+---
+
 ### Session 2026-04-09 – Workflow-Umbau: 3-Säulen Optimization System
 
 **Kontext:** Bisher liefen Optimierungs-Erkenntnisse ad-hoc über Weekly Review + qualitycheck und landeten uneinheitlich in CLAUDE.md / Memory. Kein strukturierter Draht zwischen "was geändert" und "was gemessen". Nach nur 3 Trades war das noch tolerabel – ab jetzt (wachsendes n) nicht mehr.

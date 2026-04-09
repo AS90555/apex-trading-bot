@@ -194,8 +194,8 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
     print(f"   1R erreicht: Preis ${current_price:,.4f} vs. 1R-Level ${entry_price + (risk_per_unit if is_long else -risk_per_unit):,.4f}")
     print(f"   SL-Verschiebung: ${original_sl:,.4f} → ${new_sl:,.4f} (Entry + Fee-Buffer)")
 
-    # KRITISCH: Nur den alten loss_plan canceln – TP1 (profit_plan) und Trailing (moving_plan)
-    # bleiben aktiv. Cancel-All würde den Trailing Stop killen und das gesamte Upside zerstören.
+    # KRITISCH: Nur den alten loss_plan canceln – TP1 und TP2 (beide profit_plan)
+    # bleiben aktiv. Cancel-All würde die TPs killen und das Upside zerstören.
     cancel_ok = client.cancel_tpsl_orders(pos.coin, plan_types=["loss_plan"])
     if not cancel_ok:
         print(f"   ❌ Cancel SL fehlgeschlagen – BE-SL nicht gesetzt")
@@ -211,55 +211,11 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
         )
         return False
 
-    # Sicherheitsnetz: Falls das Trailing aus irgendeinem Grund nicht mehr aktiv ist
-    # (z.B. manuell entfernt oder durch früheren Cancel-Bug verloren), neu setzen.
-    # Wichtig: GET muss erfolgreich sein – sonst Duplikat-Risiko bei API-Hiccup.
-    trailing_restored = False
-    try:
-        active_orders = client.get_tpsl_orders(pos.coin)
-        # Plausibilität: unser frisch platzierter BE-SL muss sichtbar sein,
-        # sonst hat der GET vermutlich gefailed → kein Re-Place wagen.
-        be_sl_visible = any(o.get("planType") == "loss_plan" for o in active_orders)
-        has_trailing = any(o.get("planType") == "moving_plan" for o in active_orders)
-        if be_sl_visible and not has_trailing:
-            trail_pct = float(last_trade.get("trail_pct", 0) or 0)
-            trailing_activation = float(last_trade.get("trailing_activation", 0) or 0)
-            size_tp2 = float(last_trade.get("size_tp2", 0) or 0)
-            if not size_tp2:
-                # Fallback: verbleibende Position (TP1 könnte schon gefüllt sein)
-                size_tp2 = abs(pos.size)
-            if trail_pct > 0 and trailing_activation > 0 and size_tp2 > 0:
-                tp2_r = client.place_trailing_stop(
-                    pos.coin, trail_pct, trailing_activation, size_tp2, hold_side=hold_side
-                )
-                trailing_restored = tp2_r.success
-                if trailing_restored:
-                    print(f"   🔄 Trailing Stop neu gesetzt @ ${trailing_activation:,.4f} ({trail_pct*100:.2f}%)")
-                else:
-                    print(f"   ⚠️  Trailing-Replace fehlgeschlagen: {tp2_r.error}")
-                    send_telegram_notification(
-                        f"⚠️ APEX: Trailing-Restore FEHLER\n\n"
-                        f"{pos.coin} {direction_str}\n"
-                        f"BE-SL aktiv, aber Trailing konnte nicht neu gesetzt werden:\n"
-                        f"{tp2_r.error}\n"
-                        f"Trade läuft mit BE-SL bis manueller Eingriff."
-                    )
-    except Exception as e:
-        print(f"   ⚠️  Trailing-Check fehlgeschlagen: {e}")
-        send_telegram_notification(
-            f"⚠️ APEX: Trailing-Check FEHLER\n\n"
-            f"{pos.coin} {direction_str}\n"
-            f"BE wurde gesetzt, aber Trailing-Plausibilität fehlgeschlagen:\n"
-            f"{e}\n"
-            f"Trade läuft mit BE-SL bis manueller Eingriff."
-        )
-
     print(f"   ✅ BE-SL gesetzt @ ${new_sl:,.4f}")
-    extra = " | Trailing wiederhergestellt" if trailing_restored else ""
     send_telegram_notification(
         f"🛡️ APEX: Break-Even aktiv\n\n"
         f"{pos.coin} {direction_str}\n"
-        f"1R erreicht – SL auf ${new_sl:,.4f} nachgezogen{extra}\n"
+        f"1R erreicht – SL auf ${new_sl:,.4f} nachgezogen\n"
         f"(Entry: ${entry_price:,.4f} | Buffer: ${fee_buffer:,.4f})"
     )
     return True

@@ -248,25 +248,24 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     risk_actual = abs(actual_entry - stop_loss)
 
     # TP1: statisch bei 1:1 (halbe Size) – gesicherter Teilgewinn
-    # TP2: nativer Trailing Stop, aktiviert bei 2R – folgt dem Trend dynamisch
+    # TP2: statisch bei 3:1 (andere Hälfte) – maximiert Upside ohne Bitget 1%-Trailing-Clamp
+    # Siehe H-002 im hypothesis_log: natives moving_plan ist bei Andres Kapital strukturell wertlos,
+    # weil rangeRate auf Bitget-Minimum 1% hochclampt wird → Trailing läge faktisch bei Entry.
     if direction == "long":
-        take_profit_1     = actual_entry + risk_actual * 1.0  # 1:1 statisch
-        trailing_activation = actual_entry + risk_actual * 2.0  # 2:1 Aktivierung Trailing
+        take_profit_1 = actual_entry + risk_actual * 1.0  # 1:1 statisch
+        take_profit_2 = actual_entry + risk_actual * 3.0  # 3:1 statisch
     else:
-        take_profit_1     = actual_entry - risk_actual * 1.0
-        trailing_activation = actual_entry - risk_actual * 2.0
-
-    # Trail-Abstand: 0.5R als Prozentsatz (für beide Richtungen gleich)
-    trail_pct = (risk_actual * 0.5) / actual_entry
+        take_profit_1 = actual_entry - risk_actual * 1.0
+        take_profit_2 = actual_entry - risk_actual * 3.0
 
     size_tp1 = round_size(asset, size / 2)
     size_tp2 = round_size(asset, size - size_tp1)
 
     # MIN_TRADE_SIZE-Check: Wenn TP1-Hälfte unter Bitget-Mindestgröße rundet,
-    # gesamten Size ins Trailing routen statt eine TP1-Order mit 0 zu platzieren.
+    # gesamten Size auf TP2 routen statt eine TP1-Order mit 0 zu platzieren.
     min_sz = MIN_TRADE_SIZE.get(asset, 0.01)
     if size_tp1 < min_sz:
-        print(f"   ℹ️  TP1-Size {size_tp1} < Min {min_sz} ({asset}) – Split übersprungen, alles ins Trailing")
+        print(f"   ℹ️  TP1-Size {size_tp1} < Min {min_sz} ({asset}) – Split übersprungen, alles auf TP2")
         size_tp1 = 0.0
         size_tp2 = size
 
@@ -288,7 +287,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         sl_ok = sl_r.success
         print(f"   {'✅' if sl_ok else '❌'} SL {'gesetzt' if sl_ok else 'FEHLER: ' + str(sl_r.error)}")
 
-    # Split Take-Profit platzieren (TP1 nur wenn Size > 0 — sonst Trailing-only)
+    # Split Take-Profit platzieren (TP1 nur wenn Size > 0 — sonst TP2-only)
     if size_tp1 > 0:
         tp1_r = client.place_take_profit(asset, take_profit_1, size_tp1, hold_side=hold_side)
         if not tp1_r.success:
@@ -298,14 +297,14 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         print(f"   {'✅' if tp1_ok else '❌'} TP1 1:1 @ ${take_profit_1:,.4f} (Size {size_tp1}) {'gesetzt' if tp1_ok else 'FEHLER: ' + str(tp1_r.error)}")
     else:
         tp1_ok = True  # bewusst übersprungen – kein Fehler
-        print(f"   ⏭️  TP1 übersprungen (Trailing-only Mode)")
+        print(f"   ⏭️  TP1 übersprungen (TP2-only Mode)")
 
-    tp2_r = client.place_trailing_stop(asset, trail_pct, trailing_activation, size_tp2, hold_side=hold_side)
+    tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2, hold_side=hold_side)
     if not tp2_r.success:
         time.sleep(2)
-        tp2_r = client.place_trailing_stop(asset, trail_pct, trailing_activation, size_tp2, hold_side=hold_side)
+        tp2_r = client.place_take_profit(asset, take_profit_2, size_tp2, hold_side=hold_side)
     tp2_ok = tp2_r.success
-    print(f"   {'✅' if tp2_ok else '❌'} TP2 Trailing @ Aktivierung ${trailing_activation:,.4f} | Trail {trail_pct*100:.2f}% (Size {size_tp2}) {'gesetzt' if tp2_ok else 'FEHLER: ' + str(tp2_r.error)}")
+    print(f"   {'✅' if tp2_ok else '❌'} TP2 3:1 @ ${take_profit_2:,.4f} (Size {size_tp2}) {'gesetzt' if tp2_ok else 'FEHLER: ' + str(tp2_r.error)}")
 
     tp_ok = tp1_ok and tp2_ok
 
@@ -327,10 +326,10 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         send_telegram_message(alert_msg)
         return {"success": False, "error": "SL fehlgeschlagen – Position notgeschlossen"}
 
-    # KRITISCH: Trailing-Only-Mode (size_tp1=0) + Trailing fehlgeschlagen
+    # KRITISCH: TP2-Only-Mode (size_tp1=0) + TP2 fehlgeschlagen
     # → Trade hätte NUR SL als Exit, keinen Profit-Mechanismus → notschließen
     if size_tp1 == 0 and not tp2_ok:
-        print(f"\n🚨 Trailing-Only-Mode + Trailing FAIL → kein Profit-Mechanismus, notschließen...")
+        print(f"\n🚨 TP2-Only-Mode + TP2 FAIL → kein Profit-Mechanismus, notschließen...")
         # Reihenfolge wichtig: ERST close (reduce_only), DANN orphan-cancel.
         # Würden wir vorher cancel_tpsl_orders rufen, wäre auch der SL weg –
         # wenn dann place_market_order fehlschlägt, läuft die Position ungeschützt.
@@ -347,12 +346,12 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
             position_status = "KONNTE NICHT GESCHLOSSEN WERDEN ❌ – SL NOCH AKTIV – MANUELL HANDELN!"
         alert_msg = (
             f"🚨 APEX NOTFALL-SCHLIESSUNG{' [DRY RUN]' if DRY_RUN else ''}\n\n"
-            f"{asset} {direction.upper()} – Trailing-Only-Mode + Trailing-Stop FEHLER\n"
-            f"TP1 zu klein, Trailing nicht setzbar → kein Profit-Take möglich\n"
+            f"{asset} {direction.upper()} – TP2-Only-Mode + TP2 FEHLER\n"
+            f"TP1 zu klein, TP2 @ ${take_profit_2:,.4f} nicht setzbar → kein Profit-Take möglich\n"
             f"Position {position_status}"
         )
         send_telegram_message(alert_msg)
-        return {"success": False, "error": "Trailing-Only + Trailing fail – notgeschlossen"}
+        return {"success": False, "error": "TP2-Only + TP2 fail – notgeschlossen"}
 
     # TP unvollständig: SL ist aktiver Schutz → Warnung, Trade läuft weiter
     if not tp_ok:
@@ -378,15 +377,13 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         # Exit-Planung
         "stop_loss": stop_loss,
         "take_profit_1": take_profit_1,
-        "take_profit_2": None,  # wird als Trailing Stop gesetzt (siehe trailing_activation)
-        "trailing_activation": trailing_activation,
-        "trail_pct": round(trail_pct, 6),
+        "take_profit_2": take_profit_2,  # statisch bei 3:1 (siehe H-002)
         "size_tp1": size_tp1,
         "size_tp2": size_tp2,
         # Risiko
         "risk_usd": effective_risk,
         "risk_per_unit": round(abs(actual_entry - stop_loss), 6),
-        "ratio": "Split 1:1 + Trailing(2R, 0.5R-Offset)",
+        "ratio": "Split 1:1 + 3:1",
         # Slippage (Fill vs. erwarteter Breakout-Trigger)
         "trigger_price": round(trigger_price, 6),
         "slippage_usd": slippage_usd,
@@ -412,8 +409,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "size": size,
         "stop_loss": stop_loss,
         "take_profit_1": take_profit_1,
-        "trailing_activation": trailing_activation,
-        "trail_pct": trail_pct,
+        "take_profit_2": take_profit_2,
         "size_tp1": size_tp1,
         "size_tp2": size_tp2,
         "risk_usd": effective_risk,
@@ -696,7 +692,7 @@ def main():
             print(f"   Size:        {result['size']}")
             print(f"   Stop-Loss:   ${result['stop_loss']:,.4f}  (Risk: ${result['risk_usd']:.2f})")
             print(f"   TP1 (1:1):   ${result['take_profit_1']:,.4f}  (Size {result['size_tp1']})")
-            print(f"   TP2 Trailing: Aktivierung @ ${result['trailing_activation']:,.4f} | Trail {result['trail_pct']*100:.2f}% (Size {result['size_tp2']})")
+            print(f"   TP2 (3:1):   ${result['take_profit_2']:,.4f}  (Size {result['size_tp2']})")
             print(f"   Hebel:       {LEVERAGE}x")
 
             direction_emoji = "🟢" if result["direction"] == "long" else "🔴"
@@ -708,8 +704,8 @@ def main():
                 f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
                 f"Exit-Strategie:\n"
                 f"  TP1 (1:1): ${result['take_profit_1']:,.4f} (Size {result['size_tp1']})\n"
-                f"  TP2 Trailing: ab ${result['trailing_activation']:,.4f} | {result['trail_pct']*100:.2f}% Offset (Size {result['size_tp2']})\n"
-                f"Hebel: {LEVERAGE}x | Split 1:1 + Trailing(2R)"
+                f"  TP2 (3:1): ${result['take_profit_2']:,.4f} (Size {result['size_tp2']})\n"
+                f"Hebel: {LEVERAGE}x | Split 1:1 + 3:1"
             )
             send_telegram_message(msg)
         else:

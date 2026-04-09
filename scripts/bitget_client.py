@@ -592,6 +592,13 @@ class BitgetClient:
         """
         Nativer Bitget Trailing Stop (moving_plan).
 
+        DEPRECATED (seit H-002, 2026-04-09): In autonomous_trade.py NICHT mehr aufgerufen.
+        Bitget clampt rangeRate auf Minimum 1% – bei kleinem Kapital ($50-$500) sind 0.5R
+        typisch <1% vom Preis, wodurch der Trail effektiv bei Entry landet und wertlos wird.
+        Stattdessen wird aktuell statisches TP2 @ 3R über place_take_profit() genutzt.
+        Funktion bleibt erhalten für v2 (DIY-Trailing in position_monitor ab Kapital >$500),
+        siehe memory/project_parked_diy_trailing.md.
+
         Läuft exchange-side – überlebt Server-Abstürze ohne Cancel-Replace-Lücken.
 
         callback_ratio:   Trail-Abstand als Dezimalzahl (z.B. 0.015 = 1.5% vom Peak)
@@ -633,7 +640,7 @@ class BitgetClient:
         """Storniere Plan-Orders (SL/TP) für ein Asset.
 
         plan_types: Optional Filter, z.B. ["loss_plan"] → nur SL canceln,
-                    TP1 (profit_plan) und Trailing (moving_plan) bleiben aktiv.
+                    TP1 und TP2 (beide profit_plan) bleiben aktiv.
                     Default (None) cancelt ALLE Plan-Orders.
 
         GET-Fehler (z.B. 400172 Parameter verification) = keine Orders vorhanden → True.
