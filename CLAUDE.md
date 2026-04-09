@@ -1,5 +1,20 @@
 # APEX Trading Bot – Claude Code Kontext
 
+## ⚠️ ZWEI WELTEN – NIEMALS VERMISCHEN
+
+| | APEX (Live) | Freqtrade (Analyse) |
+|---|---|---|
+| **Verzeichnis** | `/root/apex-trading-bot/` | `/root/freqtrade-bot/` |
+| **Modus** | LIVE – echtes Geld | DRY-RUN – kein echtes Geld |
+| **API-Keys** | Aktiv (private Endpunkte) | Leer (nur public OHLCV) |
+| **Priorität** | **IMMER HÖCHSTE** | Nachrangig |
+| **Rate-Limit Pool** | Private Bitget Endpunkte | Öffentliche Bitget Endpunkte |
+
+**REGEL:** Jede Session beginnt mit `python /root/apex-trading-bot/scripts/apex_status.py`.
+Vor JEDER Datei-Änderung sicherstellen: In welchem Verzeichnis bin ich? Was ist der Kontext?
+
+---
+
 ## Automatische Anweisungen für Claude Code
 
 **BEIM SESSION-START:**
@@ -79,6 +94,32 @@ apex-trading-bot/
 ---
 
 ## Architektur-Entscheidungen & Session-Log
+
+### Session 2026-04-09 Teil 3 – Spur 1+2: Enhanced Logging + Freqtrade Dry-Run
+
+**Umgesetzt:**
+
+**Spur 1 – APEX Enhanced Logging** (kein Filter, nur Datensammlung):
+
+| Datei | Änderung |
+|---|---|
+| `scripts/autonomous_trade.py` | `_calc_ema()` + `_calc_atr()` Hilfsfunktionen (reines Python, kein talib). `scan_for_breakouts()` ruft 210×15m-Kerzen ab, berechnet `trend_context` (EMA-200/50, ATR-14, trend_direction, atr_ratio). `execute_breakout_trade()` ruft `market_structure` beim Entry ab. Beides in `trades.json` geloggt. |
+| `scripts/bitget_client.py` | 3 neue Public-API-Methoden: `get_open_interest()`, `get_long_short_ratio()`, `get_taker_ratio()`. Außerdem `pageSize` → `limit` Bug-Fix (400172 Error auf `orders-plan-pending`). |
+
+**Spur 2 – Freqtrade Dry-Run** (parallel zu APEX, kein echter Einsatz):
+
+| Datei | Änderung |
+|---|---|
+| `AdvancedORB.py` | `order_types["entry"]`: `"limit"` → `"market"` (Limit verlor 61% der Signale durch Entry-Timeouts). `custom_entry_price()` → Pass-Through. |
+| `config.json` | `entry_pricing.price_side`: `"same"` → `"other"` (Pflicht für market orders). XRP zu Whitelist hinzugefügt. `stake_amount`: `"unlimited"` → `33.33`. |
+
+**Backtest-Ergebnis** (Okt 2025–Apr 2026, -57% Markt): 867 Trades, 31% Win-Rate, PF 0.52, -6.39%. Beurteilung: Market-Crash-Periode ist worst-case für Long-Trades; TP1/TP2 korrekt implementiert (partial_exit bestätigt). Dry-Run in aktuellem Markt aussagekräftiger.
+
+**Erstes Dry-Run Signal sofort:** AVAX ORB_Long entry 9.333 → TP1 partial_exit bei 9.449 (+1.2%). `adjust_trade_position` funktioniert korrekt.
+
+**Hypothese H-005 eingetragen.** Freqtrade läuft auf `/root/freqtrade-bot/` mit `docker compose`.
+
+---
 
 ### Session 2026-04-09 Teil 2 – H-002: TP2 Trailing → Statisches TP2 @ 3R (Strategie-Fix)
 
@@ -402,49 +443,22 @@ und gegen die bestehende cron-basierte Architektur abgewogen (Chain of Truth + D
 
 ---
 
-## Was auf dem Server noch zu tun ist
+## Aktueller Setup-Status
 
-1. **Repo klonen**
-   ```bash
-   git clone https://github.com/AS90555/apex-trading-bot.git
-   cd apex-trading-bot
-   ```
+✅ **Server vollständig eingerichtet und LIVE** (seit 2026-04-06)
 
-2. **Setup ausführen**
-   ```bash
-   chmod +x setup_server.sh && ./setup_server.sh
-   ```
+- Repo: `https://github.com/AS90555/apex-trading-bot`
+- API-Keys eingetragen, Bot läuft mit `DRY_RUN = False`
+- Crontab aktiv (3 Sessions/Tag + Monitor alle 5 Min)
+- Freqtrade Dry-Run parallel aktiv unter `/root/freqtrade-bot/` (seit 2026-04-09)
 
-3. **Timezone prüfen** (muss Europe/Berlin sein!)
-   ```bash
-   timedatectl
-   sudo timedatectl set-timezone Europe/Berlin
-   ```
-
-4. **API-Keys eintragen**
-   ```bash
-   nano config/.env.bitget
-   # BITGET_API_KEY=...
-   # BITGET_SECRET_KEY=...
-   # BITGET_PASSPHRASE=...
-
-   nano .env.telegram
-   # TELEGRAM_BOT_TOKEN=...
-   # TELEGRAM_CHAT_ID=...
-   ```
-
-5. **Testen mit echten Credentials**
-   ```bash
-   source venv/bin/activate
-   python scripts/bitget_client.py     # Marktdaten + Balance
-   python scripts/pre_market.py eu     # Vollständiger Check
-   ```
-
-6. **Live schalten**
-   ```bash
-   # In config/bot_config.py:
-   # DRY_RUN = False
-   ```
+**Freqtrade-Verwaltung:**
+```bash
+cd /root/freqtrade-bot
+docker compose up -d      # starten
+docker compose down       # stoppen
+docker compose logs -f    # live logs
+```
 
 ---
 
