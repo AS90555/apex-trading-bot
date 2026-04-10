@@ -439,9 +439,11 @@ class BitgetClient:
         except Exception:
             return 0.0
 
-    def get_long_short_ratio(self, coin: str) -> float:
-        """Account Long/Short Ratio (Anteil Long-Accounts vs Short-Accounts).
-        longShortAccountRatio > 1 = mehr Longs als Shorts.
+    def get_long_account_ratio(self, coin: str) -> float:
+        """Anteil der Long-Accounts in % (0.0–1.0).
+        0.68 = 68% aller Accounts halten Long-Positionen.
+        > 0.70 = Markt stark long (Contrarian: überhitzt?).
+        < 0.40 = Markt stark short (Contrarian: Bounce-Signal?).
         Returns 0.0 bei Fehler.
         """
         try:
@@ -450,11 +452,31 @@ class BitgetClient:
                 "productType": PRODUCT_TYPE,
                 "period": "5m",
             })
-            # Response: [{"longAccountRatio": "0.68", "shortAccountRatio": "0.32", "longShortAccountRatio": "0.021", "ts": "..."}]
+            # Response: [{"longAccountRatio": "0.68", "shortAccountRatio": "0.32", ...}]
             items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
             if not items:
                 return 0.0
-            return float(items[0].get("longShortAccountRatio", 0))
+            return round(float(items[0].get("longAccountRatio", 0)), 4)
+        except Exception:
+            return 0.0
+
+    def get_funding_rate(self, coin: str) -> float:
+        """Aktueller Funding Rate (per 8h).
+        Positiv = Longs zahlen Shorts (Markt überhitzt long → bearish Contrarian).
+        Negativ = Shorts zahlen Longs (Markt überhitzt short → bullish Contrarian).
+        > +0.05% = starkes Warnsignal für Longs, < -0.01% = Shorts überhitzt.
+        Returns 0.0 bei Fehler.
+        """
+        try:
+            data = self._get("/api/v2/mix/market/current-fund-rate", {
+                "symbol": self._symbol(coin),
+                "productType": PRODUCT_TYPE,
+            })
+            # Response: [{"fundingRate": "0.0001", ...}]
+            items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+            if not items:
+                return 0.0
+            return round(float(items[0].get("fundingRate", 0)), 6)
         except Exception:
             return 0.0
 

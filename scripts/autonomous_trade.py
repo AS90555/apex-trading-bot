@@ -268,16 +268,17 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
 
     actual_entry = order_result.avg_price
 
-    # Market-Structure beim Entry: OI, Long/Short Ratio, Taker-Buy-Ratio.
+    # Market-Structure beim Entry: OI, Long-Account-%, Taker-Buy-Ratio, Funding Rate.
     # Nur geloggt – kein Filter. Datenbasis für Spur 3 Analyse nach 30 Trades.
     market_structure = {}
     try:
         market_structure = {
-            "open_interest": client.get_open_interest(asset),
-            "long_short_ratio": client.get_long_short_ratio(asset),
-            "taker_buy_ratio": client.get_taker_ratio(asset),
+            "open_interest":    client.get_open_interest(asset),
+            "long_account_pct": client.get_long_account_ratio(asset),   # z.B. 0.68 = 68% Long-Accounts
+            "taker_buy_ratio":  client.get_taker_ratio(asset),           # >0.55 bullish, <0.45 bearish
+            "funding_rate":     client.get_funding_rate(asset),          # positiv = Longs zahlen (überhitzt long)
         }
-        print(f"   📊 Market-Structure: OI={market_structure['open_interest']:.0f} | L/S={market_structure['long_short_ratio']:.3f} | Taker-Buy={market_structure['taker_buy_ratio']:.3f}")
+        print(f"   📊 Market-Structure: OI={market_structure['open_interest']:.0f} | Long%={market_structure['long_account_pct']:.2%} | Taker={market_structure['taker_buy_ratio']:.3f} | Funding={market_structure['funding_rate']:+.4%}")
     except Exception as e:
         print(f"   ⚠️  Market-Structure Fetch fehlgeschlagen: {e}")
 
@@ -637,7 +638,20 @@ def scan_for_breakouts(client):
                     "trend_direction": "above" if closes[-1] > ema_200 else "below",
                     "atr_ratio": round(box_range / atr_14, 3) if atr_14 > 0 else 0.0,
                 }
-                print(f"   📐 Trend-Kontext: EMA200={ema_200:.4f} | ATR14={atr_14:.4f} | Richtung={trend_context['trend_direction']} | Box/ATR={trend_context['atr_ratio']}")
+            # 4H-Trend: EMA-50 auf 4-Stunden-Kerzen (≈8 Tage Lookback)
+            # Zeigt ob wir mit oder gegen den mittelfristigen Wochentrend handeln.
+            try:
+                candles_4h = client.get_candles(asset, interval="4H", limit=55)
+                if len(candles_4h) >= 50:
+                    closes_4h = [c["close"] for c in candles_4h]
+                    ema_50_4h = _calc_ema(closes_4h, 50)
+                    trend_context["h4_ema_50"]        = round(ema_50_4h, 4)
+                    trend_context["h4_trend_direction"] = "above" if closes_4h[-1] > ema_50_4h else "below"
+            except Exception:
+                pass  # 4H optional – fehlt lieber als dass es den Trade blockiert
+            if trend_context:
+                h4 = trend_context.get("h4_trend_direction", "?")
+                print(f"   📐 Trend-Kontext: EMA200={trend_context.get('ema_200', 0):.4f} | ATR14={trend_context.get('atr_14', 0):.4f} | 15m={trend_context.get('trend_direction', '?')} | 4H={h4} | Box/ATR={trend_context.get('atr_ratio', 0)}")
         except Exception as e:
             print(f"   ⚠️  {asset}: EMA/ATR-Berechnung fehlgeschlagen ({e})")
 
