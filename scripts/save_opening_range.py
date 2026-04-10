@@ -14,6 +14,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.bitget_client import BitgetClient
 from telegram_sender import send_telegram_message
+from config.bot_config import PRICE_DECIMALS
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(PROJECT_DIR, "data")
@@ -70,10 +71,13 @@ def save_opening_range():
                 "timestamp": datetime.now().isoformat()
             }
 
+            rng_display = candle['high'] - candle['low']
+            decimals = PRICE_DECIMALS.get(asset, 2)
+            fmt = f",.{decimals}f"
             print(f"\n📊 {asset}:")
-            print(f"   High: ${candle['high']:,.2f}")
-            print(f"   Low:  ${candle['low']:,.2f}")
-            print(f"   Range: ${candle['high'] - candle['low']:,.2f}")
+            print(f"   High: ${candle['high']:{fmt}}")
+            print(f"   Low:  ${candle['low']:{fmt}}")
+            print(f"   Range: ${rng_display:{fmt}}")
         except Exception as e:
             print(f"⚠️  {asset}: Fehler beim Laden der Candles: {e}")
             continue
@@ -95,7 +99,9 @@ def save_opening_range():
         if asset in boxes:
             b = boxes[asset]
             rng = b["high"] - b["low"]
-            lines.append(f"{asset}: ${b['high']:,.2f} / ${b['low']:,.2f} (Range: ${rng:,.2f})")
+            decimals = PRICE_DECIMALS.get(asset, 2)
+            fmt = f",.{decimals}f"
+            lines.append(f"{asset}: ${b['high']:{fmt}} / ${b['low']:{fmt}} (Range: ${rng:{fmt}})")
     send_telegram_message("\n".join(lines))
 
     return boxes

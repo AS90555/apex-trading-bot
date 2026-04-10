@@ -361,6 +361,7 @@ class BitgetClient:
             data = self._get("/api/v2/mix/order/orders-plan-pending", {
                 "productType": PRODUCT_TYPE,
                 "symbol": self._symbol(coin),
+                "planType": "profit_loss",  # Pflichtfeld: deckt loss_plan + profit_plan ab
                 "limit": "20",
             }, auth=True)
             if isinstance(data, dict):
@@ -429,33 +430,31 @@ class BitgetClient:
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
             })
-            items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
-            if not items:
-                return 0.0
-            item = items[0]
-            # Bitget liefert openInterestList oder direkt openInterest
-            oi_list = item.get("openInterestList", [])
-            if oi_list:
-                return float(oi_list[0].get("openInterest", 0))
-            return float(item.get("openInterest", 0))
+            # Response: {"openInterestList": [{"symbol": "ETHUSDT", "size": "693973.7"}], "ts": "..."}
+            if isinstance(data, dict):
+                oi_list = data.get("openInterestList", [])
+                if oi_list:
+                    return float(oi_list[0].get("size", 0))
+            return 0.0
         except Exception:
             return 0.0
 
     def get_long_short_ratio(self, coin: str) -> float:
-        """Account Long/Short Ratio (Anzahl Accounts Long vs Short).
-        > 1.5 = Markt stark long (Contrarian: überhitzt?), < 0.7 = stark short.
+        """Account Long/Short Ratio (Anteil Long-Accounts vs Short-Accounts).
+        longShortAccountRatio > 1 = mehr Longs als Shorts.
         Returns 0.0 bei Fehler.
         """
         try:
-            data = self._get("/api/v2/mix/market/long-short-ratio", {
+            data = self._get("/api/v2/mix/market/account-long-short", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "period": "5m",
             })
+            # Response: [{"longAccountRatio": "0.68", "shortAccountRatio": "0.32", "longShortAccountRatio": "0.021", "ts": "..."}]
             items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
             if not items:
                 return 0.0
-            return float(items[0].get("longShortRatio", 0))
+            return float(items[0].get("longShortAccountRatio", 0))
         except Exception:
             return 0.0
 
@@ -466,21 +465,18 @@ class BitgetClient:
         Returns 0.5 bei Fehler (neutral).
         """
         try:
-            data = self._get("/api/v2/mix/market/taker-buy-sell-vol", {
+            data = self._get("/api/v2/mix/market/taker-buy-sell", {
                 "symbol": self._symbol(coin),
                 "productType": PRODUCT_TYPE,
                 "period": "5m",
             })
+            # Response: [{"buyVolume": "7531.19", "sellVolume": "1489.18", "ts": "..."}]
             items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
             if not items:
                 return 0.5
             row = items[0]
-            buy  = float(row.get("buySellRatio", row.get("buyVol", 0)) or 0)
-            # Bitget liefert entweder buySellRatio direkt oder buyVol+sellVol
-            if "buySellRatio" in row:
-                # buySellRatio = buy/(buy+sell), direkt verwendbar
-                return round(float(row["buySellRatio"]), 4)
-            sell = float(row.get("sellVol", 0) or 0)
+            buy  = float(row.get("buyVolume", 0) or 0)
+            sell = float(row.get("sellVolume", 0) or 0)
             total = buy + sell
             return round(buy / total, 4) if total > 0 else 0.5
         except Exception:
@@ -729,6 +725,7 @@ class BitgetClient:
             data = self._get("/api/v2/mix/order/orders-plan-pending", {
                 "productType": PRODUCT_TYPE,
                 "symbol": self._symbol(coin),
+                "planType": "profit_loss",  # Pflichtfeld: deckt loss_plan + profit_plan ab
                 "limit": "20",
             }, auth=True)
             if isinstance(data, dict):
