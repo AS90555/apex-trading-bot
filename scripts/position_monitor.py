@@ -425,9 +425,18 @@ def main():
             try:
                 with open(TRADES_FILE, 'r') as f:
                     all_trades = json.load(f)
+                now = datetime.now()
+                def _trade_age_minutes(t):
+                    ts = t.get("timestamp", "")[:19]
+                    try:
+                        return (now - datetime.fromisoformat(ts)).total_seconds() / 60
+                    except Exception:
+                        return 999
                 orphaned = [
                     t for t in all_trades
-                    if not t.get("exit_timestamp") and t.get("exit_reason") != "ORPHANED"
+                    if not t.get("exit_timestamp")
+                    and t.get("exit_reason") != "ORPHANED"
+                    and _trade_age_minutes(t) > 10  # 10 Min Grace-Period nach Eintrag
                 ]
                 if orphaned:
                     for ot in orphaned:

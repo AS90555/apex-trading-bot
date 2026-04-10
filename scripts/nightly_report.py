@@ -303,8 +303,8 @@ def format_report():
             lines.append(f"  {wins}W / {losses}L | Win-Rate: {wr} | Realized: {sign}${realized:.2f}")
 
         # Beste Session
-        best_session = max(td["by_session"].items(), key=lambda x: len(x[1]), default=(None, []))
-        if best_session[0]:
+        if td["by_session"]:
+            best_session = max(td["by_session"].items(), key=lambda x: len(x[1]))
             lines.append(f"  Aktivste Session: {best_session[0].upper()} ({len(best_session[1])} Trades)")
 
     # Box-Qualität
@@ -339,7 +339,7 @@ if __name__ == "__main__":
         print("📊 Erstelle Nacht-Report...")
         report = format_report()
         print(report)
-        send_telegram_message(report, parse_mode="")
+        send_telegram_message(report, parse_mode="Markdown")
         print("✅ Nacht-Report gesendet")
     except Exception as e:
         import traceback
