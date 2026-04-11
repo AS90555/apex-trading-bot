@@ -21,6 +21,9 @@ TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
 CAPITAL_FILE = os.path.join(DATA_DIR, "capital_tracking.json")
 PNL_TRACKER_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
 HWM_FILE = os.path.join(DATA_DIR, "high_water_mark.json")
+PENDING_NOTES_FILE = os.path.join(DATA_DIR, "pending_notes.jsonl")
+DEEP_REVIEW_FLAG_FILE = os.path.join(DATA_DIR, "deep_review_pending.flag")
+HYPOTHESIS_LOG = "/root/.claude/projects/-root-apex-trading-bot/memory/hypothesis_log.md"
 
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
@@ -183,6 +186,79 @@ def run_daily_closeout():
     msg = "\n".join(lines)
     print(msg)
     send_telegram_message(msg)
+
+    # Health-Check: Anomalien erkennen und melden
+    health_check(balance)
+
+
+def health_check(balance: float):
+    """Prüft System-Gesundheit und meldet Anomalien via Telegram.
+
+    Checks:
+    - Unverarbeitete Pending Notes (Debrief wurde evtl. verpasst)
+    - Stale Deep-Review-Flag (älter als 48h)
+    - Hypothesen-Deadlines < 14 Tage
+    - Drawdown > 30% von HWM
+    """
+    alerts = []
+
+    # 1. Pending Notes
+    if os.path.exists(PENDING_NOTES_FILE):
+        try:
+            with open(PENDING_NOTES_FILE, "r") as f:
+                note_count = sum(1 for line in f if line.strip())
+            if note_count > 0:
+                alerts.append(f"📝 {note_count} Pending Notes nicht verarbeitet — nächste Claude-Session starten")
+        except OSError:
+            pass
+
+    # 2. Stale Deep-Review Flag
+    if os.path.exists(DEEP_REVIEW_FLAG_FILE):
+        try:
+            flag_mtime = datetime.fromtimestamp(os.path.getmtime(DEEP_REVIEW_FLAG_FILE))
+            age_hours = (datetime.now() - flag_mtime).total_seconds() / 3600
+            if age_hours > 48:
+                alerts.append(f"🧪 Deep Review Flag seit {age_hours:.0f}h unbearbeitet — Claude-Session starten")
+        except OSError:
+            pass
+
+    # 3. Hypothesen-Deadlines
+    if os.path.exists(HYPOTHESIS_LOG):
+        try:
+            import re
+            with open(HYPOTHESIS_LOG, "r") as f:
+                content = f.read()
+            deadlines = re.findall(r"- \*\*Deadline:\*\* .*?(\d{4}-\d{2}-\d{2})", content)
+            today = datetime.now().date()
+            for d in deadlines:
+                deadline_date = datetime.strptime(d, "%Y-%m-%d").date()
+                days_left = (deadline_date - today).days
+                if 0 < days_left <= 14:
+                    alerts.append(f"⏰ Hypothesen-Deadline in {days_left} Tagen ({d})")
+                elif days_left <= 0:
+                    alerts.append(f"⚠️ Hypothesen-Deadline ÜBERSCHRITTEN ({d})")
+        except (OSError, re.error):
+            pass
+
+    # 4. Drawdown > 30%
+    if os.path.exists(HWM_FILE):
+        try:
+            with open(HWM_FILE, "r") as f:
+                hwm_data = json.load(f)
+            hwm = hwm_data.get("hwm", CAPITAL)
+            if hwm > 0:
+                dd_pct = ((hwm - balance) / hwm) * 100
+                if dd_pct > 30:
+                    alerts.append(f"🔴 Drawdown {dd_pct:.1f}% (Balance ${balance:.2f} vs HWM ${hwm:.2f})")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    if alerts:
+        health_msg = "🏥 APEX Health-Check\n\n" + "\n".join(alerts)
+        print(health_msg)
+        send_telegram_message(health_msg)
+    else:
+        print("✅ Health-Check: Alles nominal")
 
 
 if __name__ == "__main__":

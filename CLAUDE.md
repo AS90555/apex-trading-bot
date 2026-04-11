@@ -17,15 +17,45 @@ Vor JEDER Datei-Änderung sicherstellen: In welchem Verzeichnis bin ich? Was ist
 
 ## Automatische Anweisungen für Claude Code
 
-**BEIM SESSION-START:**
+**BEIM SESSION-START (Wake-Up-Routine):**
 Der Hook läuft automatisch und zeigt den APEX-Status. Lese ihn vollständig.
-Dann prüfe ob offene Positionen oder ausstehende Punkte aus dem letzten Session-Log existieren und weise Andre darauf hin.
+Dann führe automatisch diese Schritte durch, BEVOR du Andre antwortest:
 
-**WENN ANDRE SCHREIBT "apex session end":**
-1. Fasse die Erkenntnisse dieser Session zusammen (was analysiert, was entschieden, was implementiert)
-2. Aktualisiere den Abschnitt "Architektur-Entscheidungen & Session-Log" in dieser Datei
-3. Aktualisiere die Memory-Dateien unter `/root/.claude/projects/-root/memory/` wenn sich etwas am Projektstand geändert hat
-4. Bestätige kurz was gespeichert wurde
+1. **Pending Notes verarbeiten:** Wenn `apex_status.py` Pending Trade-Notes anzeigt (> 0):
+   - Lies `/root/apex-trading-bot/data/pending_notes.jsonl`
+   - Für jeden Eintrag: Schreibe eine Micro-Analyse (append) nach `/root/.claude/projects/-root-apex-trading-bot/memory/trade_log.md`
+   - Format pro Note: `### [Datum] [Asset] [Direction] [Session] — [R]R ($[PnL]) | [exit_reason]` + 1-2 Sätze Kontext (Slippage, Trend-Alignment, Gate-Fortschritt)
+   - Leere danach `pending_notes.jsonl` (schreibe leere Datei)
+
+2. **Deep Review triggern:** Wenn `apex_status.py` "Deep Review FÄLLIG" anzeigt:
+   - Führe vollständige Analyse durch (letzte 10 Trades + All-Time: Win-Rate, Avg R, PF, Session/Asset-Breakdown, Skip-Funnel, Slippage-Trend)
+   - Prüfe Hypothesen-Gates gegen reale Daten, aktualisiere Status in `hypothesis_log.md`
+   - Schreibe Report nach `/root/.claude/projects/-root-apex-trading-bot/memory/reviews/review_YYYY-MM-DD.md`
+   - Setze `trades_since_last_review` auf 0 in `pnl_tracker.json`, lösche `deep_review_pending.flag`
+   - Präsentiere Andre eine Zusammenfassung mit konkreten Vorschlägen (//EXECUTE-Gate)
+
+3. **Kontext prüfen:** Offene Positionen, ausstehende Punkte aus letztem Session-Log, Hypothesen-Deadlines < 14 Tage → Andre darauf hinweisen.
+
+4. **Optimierungs-Zyklus (JEDE Session):** Nach Datenverarbeitung identifiziere proaktiv die höchste-Impact-Optimierung und präsentiere sie Andre:
+   - Lies `/root/.claude/projects/-root-apex-trading-bot/memory/knowledge_base.md` für bestehende Erkenntnisse
+   - Analysiere: Welche Hypothese ist am nächsten an einem Gate? Welches Muster in den Daten ist am auffälligsten? Welcher Bottleneck kostet am meisten EV?
+   - Priorisiere nach: (a) EV-Impact, (b) Datenreife (genug n?), (c) Implementierungsaufwand
+   - Präsentiere Andre EINEN konkreten Vorschlag: "Höchste-Impact-Optimierung diese Session: [X]. Begründung: [Y]. Soll ich?"
+   - Wenn Andre zustimmt (//EXECUTE): Implementiere, teste, trage Hypothese ein
+   - Wenn Andre ablehnt oder anderes Thema hat: Folge seinem Lead
+
+5. **Wissensaufbau:** Wenn in der Analyse Wissenslücken auffallen (markiert mit `[ ]` in knowledge_base.md oder neue Fragen):
+   - Führe Web-Recherche durch (Bitget-API-Docs, quantitative Trading-Literatur, Microstruktur)
+   - Dokumentiere Erkenntnisse in `knowledge_base.md` unter der passenden Sektion
+   - Leite konkrete Hypothesen ab wenn die Recherche actionable Insights liefert
+
+**ZIEL jeder Session:** Den Bot messbar näher an institutionelles Niveau bringen — durch Datenanalyse, Hypothesen-Validierung, Code-Optimierung ODER Wissensaufbau. Nie eine Session ohne Fortschritt beenden.
+
+**SESSION-ENDE → Befehl: `/ASE`**
+Führt die vollständige Session-Ende-Routine durch (CLAUDE.md Log, Memory-Updates, Knowledge-Base, Git-Commit).
+
+**WICHTIG — Robustheit bei vergessenem /ASE:**
+Die kritischen Daten (Pending Notes, Deep Reviews, Trade-Log) werden am SESSION-START verarbeitet, nicht am Ende. Wenn /ASE vergessen wird, gehen nur Session-Log-Einträge in CLAUDE.md und Knowledge-Base-Updates verloren — die Rohdaten bleiben in den JSONs und werden in der nächsten Session verarbeitet.
 
 ---
 
