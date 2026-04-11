@@ -1,37 +1,37 @@
 # ============================================================
-# APEX Trading Bot – Cron Jobs
+# APEX Trading Bot – Cron Jobs (v2: 5-Min Candle-Aligned Scans)
 # Alle Zeiten: Europe/Berlin
 # Server-Timezone prüfen: timedatectl
+#
+# DESIGN: Breakout-Scan aligned mit 5m-Candle-Close (+10s Delay).
+# Candle-Close Confirmation ist institutioneller ORB-Standard:
+# → Keine Wick-Entries, nur bestätigte Breakouts.
+# → Max Entry-Latenz: ~15s nach Candle-Close (vorher: bis 15 Min).
+# → Rate Limits: ~9 calls/5min = 0.15% des Bitget-Limits (6000/min).
 # ============================================================
 
 # ─── TOKYO SESSION (Mo-Fr 02:00–03:30 Berlin) ────────────────
 0  2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py tokyo >> /root/apex-trading-bot/logs/tokyo.log 2>&1
 15 2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
-30 2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
-45 2 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
-0  3 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
+# Breakout-Scan: alle 5 Min aligned mit 5m-Candle-Close (+10s API-Finalisierung)
+# File-Lock verhindert parallele Ausführung, get_current_session() filtert
+*/5 2-3 * * 1-5  sleep 10 && cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/tokyo.log 2>&1
 30 3 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py tokyo >> /root/apex-trading-bot/logs/tokyo.log 2>&1
 
 # ─── EU SESSION (Mo-Fr 08:30–10:30 Berlin) ───────────────────
 # Box: 09:15 speichert die abgeschlossene 09:00–09:15 Kerze (echter London Open)
 30 8 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py eu >> /root/apex-trading-bot/logs/eu.log 2>&1
 15 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/eu.log 2>&1
-30 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
-45 9 * * 1-5  cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
-0  10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
-15 10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
+# Breakout-Scan: alle 5 Min aligned mit 5m-Candle-Close (+10s API-Finalisierung)
+*/5 9-10 * * 1-5  sleep 10 && cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/eu.log 2>&1
 30 10 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py eu >> /root/apex-trading-bot/logs/eu.log 2>&1
 
 # ─── USA SESSION (Mo-Fr 21:00–23:00 Berlin) ──────────────────
 # Box: 21:15 speichert die abgeschlossene 21:00–21:15 Kerze (echter NY Open)
 0  21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/pre_market.py us >> /root/apex-trading-bot/logs/us.log 2>&1
 15 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/save_opening_range.py >> /root/apex-trading-bot/logs/us.log 2>&1
-30 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
-45 21 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
-0  22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
-15 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
-30 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
-45 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
+# Breakout-Scan: alle 5 Min aligned mit 5m-Candle-Close (+10s API-Finalisierung)
+*/5 21-22 * * 1-5 sleep 10 && cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/autonomous_trade.py >> /root/apex-trading-bot/logs/us.log 2>&1
 55 22 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/session_summary.py us >> /root/apex-trading-bot/logs/us.log 2>&1
 0  23 * * 1-5 cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/daily_closeout.py >> /root/apex-trading-bot/logs/daily.log 2>&1
 
@@ -43,9 +43,9 @@
 */5 * * * *   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/position_monitor.py >> /root/apex-trading-bot/logs/monitor.log 2>&1
 
 # ─── WEEKEND MOMO (AVAX) ─────────────────────────────────────
-0  23 * * 5   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/weekend_momo.py --check >> /root/apex-trading-bot/logs/weekend.log 2>&1
-5  0  * * 6   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/weekend_momo.py --entry >> /root/apex-trading-bot/logs/weekend.log 2>&1
-0  21 * * 0   cd /root/apex-trading-bot && /root/apex-trading-bot/venv/bin/python3 /root/apex-trading-bot/scripts/weekend_momo.py --exit  >> /root/apex-trading-bot/logs/weekend.log 2>&1
+# DISABLED 2026-04-10 (Race Condition + Timezone Bug): 0  23 * * 5   ... weekend_momo.py --check
+# DISABLED 2026-04-10 (Race Condition + Timezone Bug): 5  0  * * 6   ... weekend_momo.py --entry
+# DISABLED 2026-04-10 (Race Condition + Timezone Bug): 0  21 * * 0   ... weekend_momo.py --exit
 
 # ─── LOG ROTATION (täglich 04:00) ────────────────────────────
 # tail+mv statt truncate: behält die LETZTEN 1MB (neueste Daten), nicht die ältesten

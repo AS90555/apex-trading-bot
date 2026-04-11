@@ -442,6 +442,10 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "volume_at_breakout": ctx.get("volume_at_breakout"),
         "volume_avg_20": ctx.get("volume_avg_20"),
         "volume_ratio": ctx.get("volume_ratio"),
+        # Candle-Quality (professioneller ORB-Standard)
+        "body_ratio": ctx.get("body_ratio"),          # |close-open|/range, <0.3 = Doji
+        "close_position": ctx.get("close_position"),  # 1.0=Close@High, 0.0=Close@Low
+        "scan_latency_sec": ctx.get("scan_latency_sec"),
         # Trend-Kontext (EMA-200/50, ATR-14, trend_direction, atr_ratio)
         "trend_context": ctx.get("trend_context", {}),
         # Market-Structure beim Entry (OI, Long/Short Ratio, Taker-Buy-Ratio)
@@ -508,6 +512,15 @@ def scan_for_breakouts(client):
     positions = client.get_positions()
     position_assets = [p.coin for p in positions]
     now = datetime.now()
+
+    # Timing-Instrumentation: Beweise dass Scans auf 5m-Candle-Close aligned sind
+    scan_ts = now.strftime("%H:%M:%S")
+    expected_candle_close = now.replace(second=0, microsecond=0)
+    # Letzte 5m-Candle-Close: abrunden auf volle 5 Minuten
+    candle_close_min = (expected_candle_close.minute // 5) * 5
+    expected_candle_close = expected_candle_close.replace(minute=candle_close_min)
+    latency_sec = (now - expected_candle_close).total_seconds()
+    print(f"   ⏱️  Scan {scan_ts} | Candle-Close {expected_candle_close.strftime('%H:%M')} | Latenz {latency_sec:.1f}s")
 
     current_session = get_current_session()
 
@@ -615,6 +628,33 @@ def scan_for_breakouts(client):
                         "volume_ratio": round(volume_ratio, 3),
                     })
                     continue
+
+                # ── Candle-Body-Strength (professioneller ORB-Standard) ──
+                # Institutionelle Regel: "Only take breakouts where the breakout candle
+                # closes near its high (longs) or near its low (shorts)."
+                # Doji/Spinning-Top (body < 30% der Range) = schwacher, unbestätigter Breakout.
+                candle_open = last_closed.get("open", candle_close)
+                candle_high_5m = last_closed.get("high", candle_close)
+                candle_low_5m = last_closed.get("low", candle_close)
+                candle_range_5m = candle_high_5m - candle_low_5m
+                candle_body = abs(candle_close - candle_open)
+                body_ratio = candle_body / candle_range_5m if candle_range_5m > 0 else 0.0
+
+                # Close-Position: 1.0 = Close am High (bullisch), 0.0 = Close am Low (bearisch)
+                close_position = (candle_close - candle_low_5m) / candle_range_5m if candle_range_5m > 0 else 0.5
+
+                print(f"   🕯️  {asset}: Body {body_ratio:.0%} | Close-Pos {close_position:.0%} {'↑' if close_position > 0.5 else '↓'} | Vol {volume_ratio:.2f}x")
+
+                if body_ratio < 0.3:
+                    print(f"   ⏭️  {asset}: Schwache Breakout-Candle (Body {body_ratio:.0%} < 30%) – Doji/Spinning Top → Skip")
+                    log_skip("weak_candle", asset, current_session, {
+                        "direction": direction,
+                        "body_ratio": round(body_ratio, 3),
+                        "close_position": round(close_position, 3),
+                        "candle_close": candle_close,
+                        "volume_ratio": round(volume_ratio, 3),
+                    })
+                    continue
         except Exception as e:
             print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
 
@@ -667,6 +707,9 @@ def scan_for_breakouts(client):
             "volume_at_breakout": round(volume_at_breakout, 2),
             "volume_avg_20": round(volume_avg_20, 2),
             "volume_ratio": round(volume_ratio, 3),
+            "body_ratio": round(body_ratio, 3),
+            "close_position": round(close_position, 3),
+            "scan_latency_sec": round(latency_sec, 1),
             "trend_context": trend_context,
         }, positions
 

@@ -108,6 +108,9 @@ def append_pending_note(trade: dict):
             "box_age_min": trade.get("box_age_min"),
             "breakout_distance": trade.get("breakout_distance"),
             "volume_ratio": trade.get("volume_ratio"),
+            "body_ratio": trade.get("body_ratio"),
+            "close_position": trade.get("close_position"),
+            "scan_latency_sec": trade.get("scan_latency_sec"),
             "slippage_usd": trade.get("slippage_usd"),
             "funding_paid_usd": trade.get("funding_paid_usd"),
         }
