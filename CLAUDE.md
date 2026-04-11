@@ -125,6 +125,43 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-12 — Autonome Optimierungsschleife + Strategie-Analyse
+
+**Thema:** Aufbau der autonomen Optimierungsschleife. Ausgangspunkt war der Master-Prompt "Evolutionary Quant Maintainer" den Andre vorbereitet hatte.
+
+**Analyse-Ergebnisse (Chain of Truth + Devil's Advocate):**
+
+1. **Master-Prompt:** 70% bereits vorhanden (Hypothesis-Framework, Wake-Up, CLAUDE.md). Kein signifikanter Mehrwert als Ganzes. Wertvolle Teile: 3 Kommandos, proaktive Recherche, Orderbook-Snapshots.
+
+2. **Autonome Optimierung:** Bottleneck ist nicht Session-Qualität sondern Session-Frequenz. `CronCreate` ist session-only (stirbt bei Claude-Exit). `RemoteTrigger` läuft in Anthropic-Cloud ohne Zugriff auf lokale Dateien. Sofortige Analyse nach Trade-Close hat ~null Mehrwert — Daten verfallen nicht.
+
+3. **Richtige Lösung:** Session-Start verarbeitet alles automatisch + täglicher Python-Health-Check ohne Claude-API-Kosten.
+
+**Implementiert:**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | Wake-Up-Routine erweitert (Auto-Pending-Notes + Auto-Deep-Review + Optimierungs-Zyklus + Wissensaufbau) | `CLAUDE.md` | Proaktive Optimierung ohne manuellen Trigger |
+| 2 | `check_system_health()` — täglicher Anomalie-Check (stale Flag, unverarbeitete Notes, Deadlines, DD >30%) | `scripts/daily_closeout.py` | Failsafe ohne API-Kosten, via Telegram bei Anomalie |
+| 3 | `knowledge_base.md` — wachsende Wissensdatenbank (Bitget-Microstruktur, ORB-Best-Practices, Research-Backlog) | `memory/knowledge_base.md` | Erkenntnisse überleben Sessions, kein Wissensverlust |
+| 4 | `/ASE` Slash-Command ersetzt "apex session end" | `/root/.claude/commands/ASE.md` | Kurzer Befehl statt langer Text |
+| 5 | Session-Ende-Routine robuster (CLAUDE.md + project_apex.md + knowledge_base.md) | `CLAUDE.md` | Vollständige Persistenz bei Session-Ende |
+| 6 | `project_apex.md` aktualisiert (veraltet: Stand 07.04, sagte 13 Trades) | `memory/project_apex.md` | Aktueller Stand: 9 Trades, $64.42, 33% WR |
+| 7 | `MEMORY.md` um knowledge_base.md ergänzt | `memory/MEMORY.md` | Index vollständig |
+| 8 | H-010 eingetragen | `memory/hypothesis_log.md` | Autonome Optimierungsschleife als testbare Hypothese |
+| 9 | `memory/reviews/` Verzeichnis erstellt | Server | Zielablage für Deep-Review Reports |
+
+**Entscheidungen (mit Begründung):**
+
+- **KEIN RemoteTrigger für trade-debrief:** Cloud-Agent hat keinen Zugriff auf lokale JSONs. Overhead ohne Mehrwert.
+- **KEIN subprocess.Popen nach Trade-Close:** Sofortige Analyse = ~null Mehrwert. Session-Start erledigt alles.
+- **Python Health-Check statt Claude-Agent:** $0 API-Kosten vs. ~$0.10/Tag. Gleichwertige Funktionalität für einfache Anomalie-Erkennung.
+- **`/ASE` als globaler Command** (unter `/root/.claude/commands/`): Verfügbar in allen Claude-Sessions, nicht nur im Repo-Verzeichnis.
+
+**Commit:** `46b8fc2`
+
+---
+
 ### Session 2026-04-09 Teil 3 – Spur 1+2: Enhanced Logging + Freqtrade Dry-Run
 
 **Umgesetzt:**
