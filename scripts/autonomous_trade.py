@@ -657,6 +657,7 @@ def scan_for_breakouts(client):
                     continue
         except Exception as e:
             print(f"   ⚠️  {asset}: Candle-Check fehlgeschlagen ({e}) -- fahre fort")
+            log_skip("api_error", asset, current_session, {"stage": "candle_check", "error": str(e)[:200]})
 
         box_range = box["high"] - box["low"]
 
@@ -678,10 +679,11 @@ def scan_for_breakouts(client):
                     "trend_direction": "above" if closes[-1] > ema_200 else "below",
                     "atr_ratio": round(box_range / atr_14, 3) if atr_14 > 0 else 0.0,
                 }
-            # 4H-Trend: EMA-50 auf 4-Stunden-Kerzen (≈8 Tage Lookback)
-            # Zeigt ob wir mit oder gegen den mittelfristigen Wochentrend handeln.
+            # 4H-Trend: EMA-50 auf 4-Stunden-Kerzen (≈25 Tage Lookback)
+            # 150 Candles = 100 Warmup-Perioden für saubere EMA-50-Konvergenz.
+            # (55 wäre nur 5 Warmup-Candles – zu wenig für stabile EMA.)
             try:
-                candles_4h = client.get_candles(asset, interval="4H", limit=55)
+                candles_4h = client.get_candles(asset, interval="4H", limit=150)
                 if len(candles_4h) >= 50:
                     closes_4h = [c["close"] for c in candles_4h]
                     ema_50_4h = _calc_ema(closes_4h, 50)
