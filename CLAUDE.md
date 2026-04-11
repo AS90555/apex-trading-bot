@@ -125,6 +125,20 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-12 (Abend) — Session-Check Skill Fix
+
+**Thema:** Kurze Maintenance-Session. Session-Check hatte Wochenende fälschlicherweise als Bug gemeldet.
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | Schritt 0 (Wochentag-Check) ergänzt | `.claude/commands/session.md` | Session-Skill sprang direkt in Log-Analyse ohne zu prüfen ob Wochentag = Sa/So |
+
+**Entscheidung:** Schritt 0 prüft jetzt `date +%u` → bei 6/7 sofort stoppen, keine Log-Analyse.
+
+**Nächste Session (Montag):** Optimization Loop starten — Bot systematisch auf institutionelles Niveau bringen.
+
+---
+
 ### Session 2026-04-12 — Autonome Optimierungsschleife + Strategie-Analyse
 
 **Thema:** Aufbau der autonomen Optimierungsschleife. Ausgangspunkt war der Master-Prompt "Evolutionary Quant Maintainer" den Andre vorbereitet hatte.
