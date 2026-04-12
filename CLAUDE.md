@@ -125,6 +125,38 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-12 (Nacht) — Freqtrade als APEX-1:1-Replika + Hypothesen-Shadow-Logging
+
+**Thema:** Freqtrade zum parallelen Sandbox-System machen, das unter identischen technischen Bedingungen wie APEX tradet. Nach 30 Trades pro Bot → belastbarer A/B-Vergleich. Zusätzlich Shadow-Logging für offene Hypothesen (EMA, Volume, Tight-Late-Entry) damit nach 30 Trades datengetrieben entschieden werden kann.
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | `ApexORB.py` Strategy erstellt (1:1-Replika) | `/root/freqtrade-bot/user_data/strategies/ApexORB.py` | Baseline muss exakt APEX matchen bevor Freqtrade als Experiment-Sandbox nutzbar ist |
+| 2 | 11-Punkt-Gauntlet portiert (Session, Box-Age, Min-Range, Breakout-Threshold, Late-Entry, Candle-Close, Body-Strength ≥30%, 1-per-Session, Kill-Switch) | `ApexORB.py` | Identische Entry-Logik wie `autonomous_trade.py` |
+| 3 | Sizing: 2%-Risk, Leverage 5×, TP1 1R/50% + TP2 3R statisch, BE @ 1R mit 5%-Buffer | `ApexORB.py` | Replikation der APEX-Exit-Mechanik (H-002) |
+| 4 | DST-sicheres Session-Timing via `ZoneInfo("Europe/Berlin")` | `ApexORB.py` | Alte `AdvancedORB` hatte hardcoded UTC-Winterzeiten → Box-Berechnung driftet bei DST |
+| 5 | Shadow-Logging Hooks: H-006a (EMA-200), H-006b (EMA-50), H-007 (Tight-Late), Volume ≥0.75/1.0/1.5 | `ApexORB.py` + `hypothesis_shadow_log.jsonl` | Counterfactual-Evaluation: gleiche Trade-Basis, retrospektive Filter-Analyse → saubere Kausalität bei n=30 |
+| 6 | `pending_notes.jsonl` im APEX-Format | `ApexORB.py` | Join-Key `(pair, entry_timestamp)` mit shadow-log, direkter Diff mit APEX möglich |
+| 7 | Config auf APEX-Parameter: wallet 68.33, stake unlimited, max_open_trades 4, 4 Paare | `config.json` | Technische Bedingungen exakt identisch |
+| 8 | DB-Reset (Backup `tradesv3.sqlite.backup_2026-04-12`) | `tradesv3.sqlite` | Saubere Baseline ab Session-Start |
+| 9 | `docker-compose.yml` Strategy-Switch | `docker-compose.yml` | `AdvancedORB` → `ApexORB` |
+
+**Entscheidungen & Warum:**
+- **Shadow-Logging statt Dual-Strategy:** Counterfactual bei gleicher Trade-Basis statistisch stärker (n=30 vs. 2× n=15), keine doppelten API-Calls, keine Kapital-Dynamik-Verzerrung.
+- **Market-Orders wie APEX (keine Maker-Limits):** Replikations-Treue vor Fee-Optimierung.
+- **Konstanten kopiert statt importiert:** Freqtrade-Container hat keinen Pfad-Zugriff auf `/root/apex-trading-bot/`; bewusste Kopie + Kommentar mit Quell-Referenz.
+- **Kein Rate-Limit-Konflikt Bitget:** APEX = Private-API (per-UID), Freqtrade = Public-API (per-IP-Pool, ~0.1% Auslastung).
+
+**Hypothesen-Aktivität:** Keine neuen Einträge in `hypothesis_log.md`. Shadow-Logging deckt H-006, H-007 vor — Auswertung nach 30 Trades.
+
+**Commits:** Keine in `/root/apex-trading-bot/` (alle Änderungen in `/root/freqtrade-bot/` — nicht im APEX-Git).
+
+**Abbruchkriterium Monitoring:** Wenn nach 24h keine Box-Berechnung läuft → DST/Session-Mapping prüfen, nicht an Gauntlet-Logik drehen.
+
+**Folgeaufgaben:** Nach ~30 Trades pro Bot: `analyze_shadow_hypotheses.py` schreiben (Join shadow-log ↔ pending_notes, Avg-R-Δ pro Filter).
+
+---
+
 ### Session 2026-04-12 (Abend) — Session-Check Skill Fix
 
 **Thema:** Kurze Maintenance-Session. Session-Check hatte Wochenende fälschlicherweise als Bug gemeldet.
