@@ -692,8 +692,23 @@ def scan_for_breakouts(client):
             except Exception:
                 pass  # 4H optional – fehlt lieber als dass es den Trade blockiert
             if trend_context:
+                # Alignment-Flags (nur Logging, kein Filter – Vorbereitung H-006)
+                t15 = trend_context.get("trend_direction")
+                if t15:
+                    trend_context["ema_aligned"] = (
+                        (direction == "long"  and t15 == "above") or
+                        (direction == "short" and t15 == "below")
+                    )
+                t4h = trend_context.get("h4_trend_direction")
+                if t4h:
+                    trend_context["h4_aligned"] = (
+                        (direction == "long"  and t4h == "above") or
+                        (direction == "short" and t4h == "below")
+                    )
                 h4 = trend_context.get("h4_trend_direction", "?")
-                print(f"   📐 Trend-Kontext: EMA200={trend_context.get('ema_200', 0):.4f} | ATR14={trend_context.get('atr_14', 0):.4f} | 15m={trend_context.get('trend_direction', '?')} | 4H={h4} | Box/ATR={trend_context.get('atr_ratio', 0)}")
+                a15 = "✅" if trend_context.get("ema_aligned") else "❌"
+                a4h = "✅" if trend_context.get("h4_aligned") else "❌"
+                print(f"   📐 Trend-Kontext: EMA200={trend_context.get('ema_200', 0):.4f} | ATR14={trend_context.get('atr_14', 0):.4f} | 15m={trend_context.get('trend_direction', '?')} {a15} | 4H={h4} {a4h} | Box/ATR={trend_context.get('atr_ratio', 0)}")
         except Exception as e:
             print(f"   ⚠️  {asset}: EMA/ATR-Berechnung fehlgeschlagen ({e})")
 
