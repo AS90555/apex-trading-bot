@@ -1,0 +1,65 @@
+============================================================
+APEX WeekendMomo – Sonntag Exit
+============================================================
+⏸️ Kein WeekendMomo-Trade offen
+NO_REPLY
+Traceback (most recent call last):
+  File "/root/apex-trading-bot/scripts/weekend_momo.py", line 551, in <module>
+    main()
+  File "/root/apex-trading-bot/scripts/weekend_momo.py", line 536, in main
+    check_momentum()
+  File "/root/apex-trading-bot/scripts/weekend_momo.py", line 148, in check_momentum
+    momentum, tue_close, fri_close = get_3day_momentum(client)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/apex-trading-bot/scripts/weekend_momo.py", line 89, in get_3day_momentum
+    candles = client.get_candles(WEEKEND_ASSET, interval="1d", limit=7)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/apex-trading-bot/scripts/bitget_client.py", line 218, in get_candles
+    data = self._get("/api/v2/mix/market/candles", {
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/apex-trading-bot/scripts/bitget_client.py", line 171, in _get
+    resp.raise_for_status()
+  File "/root/apex-trading-bot/venv/lib/python3.12/site-packages/requests/models.py", line 1028, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: https://api.bitget.com/api/v2/mix/market/candles?symbol=AVAXUSDT&productType=USDT-FUTURES&granularity=1D&limit=7
+============================================================
+APEX WeekendMomo – Freitag Momentum-Check
+============================================================
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+💥 ERROR: 429 Client Error: Too Many Requests for url: https://api.bitget.com/api/v2/mix/market/candles?symbol=AVAXUSDT&productType=USDT-FUTURES&granularity=1D&limit=7
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX WeekendMomo – Samstag Entry
+============================================================
+⏸️ Kein Signal – kein Trade
+NO_REPLY
+============================================================
+APEX WeekendMomo – Sonntag Exit
+============================================================
+⏸️ Kein WeekendMomo-Trade offen
+NO_REPLY
+/root/apex-trading-bot/scripts/weekend_momo.py:98: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  dt = datetime.utcfromtimestamp(ts / 1000 if ts > 1e10 else ts)
+/root/apex-trading-bot/scripts/weekend_momo.py:183: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "checked_at": datetime.utcnow().isoformat(),
+/root/apex-trading-bot/scripts/weekend_momo.py:184: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "weekend_of": datetime.utcnow().strftime("%Y-%m-%d"),
+============================================================
+APEX WeekendMomo – Freitag Momentum-Check
+============================================================
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+📊 AVAX 3-Tage-Momentum:
+   Dienstag-Close: $9.2150
+   Freitag-Close:  $9.5070
+   Momentum:       +3.17%
+   Threshold:      ±3%
+   ATR(14, 4h):    $0.1769
+
+✅ SIGNAL: LONG (+3.17%)
+✅ Telegram message sent
+NO_REPLY

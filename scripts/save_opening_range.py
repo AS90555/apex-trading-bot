@@ -92,18 +92,6 @@ def save_opening_range():
     os.replace(tmp_file, BOXES_FILE)
 
     print(f"\n✅ Boxes saved to {BOXES_FILE}")
-
-    # Send Telegram notification
-    lines = ["📊 APEX Opening Range Captured\n"]
-    for asset in assets:
-        if asset in boxes:
-            b = boxes[asset]
-            rng = b["high"] - b["low"]
-            decimals = PRICE_DECIMALS.get(asset, 2)
-            fmt = f",.{decimals}f"
-            lines.append(f"{asset}: ${b['high']:{fmt}} / ${b['low']:{fmt}} (Range: ${rng:{fmt}})")
-    send_telegram_message("\n".join(lines))
-
     return boxes
 
 

@@ -1,0 +1,1669 @@
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $68.33 USDT
+📊 Keine offenen Positionen
+
+ETH: $1,983.9600 | SOL: $81.3770 | AVAX: $8.5980
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $1,982.75
+   Low:  $1,982.75
+   Range: $0.00
+
+📊 SOL:
+   High: $81.17
+   Low:  $81.17
+   Range: $0.00
+
+📊 AVAX:
+   High: $8.57
+   Low:  $8.57
+   Range: $0.01
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+
+🎯 BREAKOUT!
+   ETH LONG
+   Preis: $2,006.7500
+   Box:   $1,982.7500 – $1,982.7500
+   Distanz: $24.0000
+
+💰 Balance: $68.33 USDT | Risk/Trade: $1.37
+
+🚀 Führe long Trade aus...
+✅ Leverage 5x gesetzt für ETH
+
+✅ TRADE AUSGEFÜHRT
+   Entry:       $2,007.0000
+   Size:        0.05
+   Stop-Loss:   $1,977.7500  (Risk: $1.37)
+   Take-Profit: $2,065.5000  (Reward: $2.73)
+   Hebel:       5x
+   SL: ✅ | TP: ✅
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+✅ Telegram message sent
+NO_REPLY
+Traceback (most recent call last):
+  File "/root/apex-trading-bot/scripts/session_summary.py", line 13, in <module>
+    from hyperliquid_client import HyperliquidClient
+  File "/root/apex-trading-bot/scripts/hyperliquid_client.py", line 16, in <module>
+    from eth_account import Account
+ModuleNotFoundError: No module named 'eth_account'
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $73.01 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,026.4000 | SOL: $82.5480 | AVAX: $8.8070
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $73.01 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,026.4000 | SOL: $82.5480 | AVAX: $8.8070
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $2,020.59
+   Low:  $2,020.38
+   Range: $0.21
+⚠️  No candles for SOL
+
+📊 AVAX:
+   High: $8.80
+   Low:  $8.80
+   Range: $0.00
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $2,020.59
+   Low:  $2,020.38
+   Range: $0.21
+
+📊 SOL:
+   High: $82.38
+   Low:  $82.37
+   Range: $0.01
+
+📊 AVAX:
+   High: $8.80
+   Low:  $8.80
+   Range: $0.00
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+⏳ Anderer autonomous_trade.py läuft noch – Abbruch.
+Traceback (most recent call last):
+  File "/root/apex-trading-bot/scripts/autonomous_trade.py", line 449, in <module>
+    result = main()
+             ^^^^^^
+  File "/root/apex-trading-bot/scripts/autonomous_trade.py", line 404, in main
+    result = execute_breakout_trade(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/apex-trading-bot/scripts/autonomous_trade.py", line 271, in execute_breakout_trade
+    "sl_placed": sl_result.success,
+                 ^^^^^^^^^
+NameError: name 'sl_result' is not defined
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+
+🎯 BREAKOUT!
+   ETH LONG
+   Preis: $2,026.1400
+   Box:   $2,020.3800 – $2,020.5900
+   Distanz: $5.5500
+
+💰 Balance: $73.01 USDT | Risk/Trade: $1.46
+
+🚀 Führe long Trade aus...
+✅ Leverage 5x gesetzt für ETH
+   🧹 Bereinige verbleibende TP/SL-Orders für ETH...
+⚠️  Cancel TP/SL Fehler: 404 Client Error: Not Found for url: https://api.bitget.com/api/v2/mix/order/cancel-all-plan-order
+⚠️  TPSL-Order Check Fehler: 404 Client Error: Not Found for url: https://api.bitget.com/api/v2/mix/order/tpsl-pending?productType=USDT-FUTURES&symbol=ETHUSDT
+   ✅ SL gesetzt
+   ✅ TP gesetzt
+
+💥 ERROR: name 'sl_result' is not defined
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+⏳ Anderer autonomous_trade.py läuft noch – Abbruch.
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+⏳ Anderer autonomous_trade.py läuft noch – Abbruch.
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 *Tokyo Session Abschluss*
+
+*Breakout-Check:*
+  • ETH: 🟢 *LONG* ($40.06)
+  • SOL: 🟢 *LONG* ($1.34)
+  • AVAX: 🟢 *LONG* ($0.15)
+
+*Trade:* ✅ 🟢 *ETH LONG* @ $2,026.1500
+
+*Balance:* $75.67 USDT
+*P&L vs Start:* 📈 +$7.34 (+10.74%)
+_(Startkapital: $68.33 USDT)_
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 *Tokyo Session Abschluss*
+
+*Breakout-Check:*
+  • ETH: 🟢 *LONG* ($40.06)
+  • SOL: 🟢 *LONG* ($1.34)
+  • AVAX: 🟢 *LONG* ($0.16)
+
+*Trade:* ✅ 🟢 *ETH LONG* @ $2,026.1500
+
+*Balance:* $75.67 USDT
+*P&L vs Start:* 📈 +$7.34 (+10.74%)
+_(Startkapital: $68.33 USDT)_
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $76.54 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,104.0300 | SOL: $83.1530 | AVAX: $8.9060
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $2,100.67
+   Low:  $2,100.67
+   Range: $0.00
+
+📊 SOL:
+   High: $83.05
+   Low:  $83.05
+   Range: $0.01
+
+📊 AVAX:
+   High: $8.91
+   Low:  $8.91
+   Range: $0.00
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+Traceback (most recent call last):
+  File "/root/apex-trading-bot/scripts/autonomous_trade.py", line 449, in <module>
+    result = main()
+             ^^^^^^
+  File "/root/apex-trading-bot/scripts/autonomous_trade.py", line 404, in main
+    result = execute_breakout_trade(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/apex-trading-bot/scripts/autonomous_trade.py", line 271, in execute_breakout_trade
+    "sl_placed": sl_result.success,
+                 ^^^^^^^^^
+NameError: name 'sl_result' is not defined
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+
+🎯 BREAKOUT!
+   ETH LONG
+   Preis: $2,114.5000
+   Box:   $2,100.6700 – $2,100.6700
+   Distanz: $13.8300
+
+💰 Balance: $76.54 USDT | Risk/Trade: $1.53
+
+🚀 Führe long Trade aus...
+✅ Leverage 5x gesetzt für ETH
+   🧹 Bereinige verbleibende TP/SL-Orders für ETH...
+⚠️  Cancel TP/SL Fehler: 404 Client Error: Not Found for url: https://api.bitget.com/api/v2/mix/order/cancel-all-plan-order
+⚠️  TPSL-Order Check Fehler: 404 Client Error: Not Found for url: https://api.bitget.com/api/v2/mix/order/tpsl-pending?productType=USDT-FUTURES&symbol=ETHUSDT
+   ✅ SL gesetzt
+   ✅ TP gesetzt
+
+💥 ERROR: name 'sl_result' is not defined
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 *Tokyo Session Abschluss*
+
+*Breakout-Check:*
+  • ETH: ✅ Kein Breakout
+  • SOL: ✅ Kein Breakout
+  • AVAX: ✅ Kein Breakout
+
+*Trade:* ✅ 🟢 *ETH LONG* @ $2,112.4600
+
+*Account Equity:* $75.33 USDT
+*P&L vs Start:* 📈 +$7.00 (+10.25%)
+_(Startkapital: $68.33 USDT)_
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $76.52 USDT
+📊 Offene Positionen: 1
+  SOL SHORT | Entry: $82.93 | 🟢 P&L: $+1.58
+
+ETH: $2,138.5400 | SOL: $81.1650 | AVAX: $9.1210
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $2,140.14
+   Low:  $2,133.90
+   Range: $6.24
+
+📊 SOL:
+   High: $81.22
+   Low:  $81.00
+   Range: $0.22
+
+📊 AVAX:
+   High: $9.14
+   Low:  $9.12
+   Range: $0.03
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+📊 Bestehende Positionen: SOL SHORT
+
+🔍 Suche Breakouts...
+   ⏭️  SOL: übersprungen (Position bereits offen)
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+📊 Bestehende Positionen: SOL SHORT
+
+🔍 Suche Breakouts...
+
+🎯 BREAKOUT!
+   ETH LONG
+   Preis: $2,152.0600
+   Box:   $2,133.9000 – $2,140.1400
+   Distanz: $11.9200
+
+💰 Balance: $76.13 USDT | Risk/Trade: $1.52
+
+🚀 Führe long Trade aus...
+✅ Leverage 5x gesetzt für ETH
+   🧹 Bereinige verbleibende TP/SL-Orders für ETH...
+⚠️  Cancel TP/SL Fehler: 404 Client Error: Not Found for url: https://api.bitget.com/api/v2/mix/order/cancel-all-plan-order
+⚠️  TPSL-Order Check Fehler: 404 Client Error: Not Found for url: https://api.bitget.com/api/v2/mix/order/tpsl-pending?productType=USDT-FUTURES&symbol=ETHUSDT
+   ✅ SL gesetzt
+   ✅ TP gesetzt
+
+✅ TRADE AUSGEFÜHRT
+   Entry:       $2,152.8700
+   Size:        0.07
+   Stop-Loss:   $2,128.9000  (Risk: $1.52)
+   Take-Profit: $2,200.8100  (Reward: $3.05)
+   Hebel:       5x
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 *Tokyo Session Abschluss*
+
+*Breakout-Check:*
+  • ETH: 🔴 *SHORT* ($23.21)
+  • SOL: 🔴 *SHORT* ($1.21)
+  • AVAX: ✅ Kein Breakout
+
+*Trade:* ✅ 🟢 *ETH LONG* @ $2,152.8700
+
+*Account Equity:* $75.79 USDT
+*P&L vs Start:* 📈 +$7.46 (+10.92%)
+_(Startkapital: $68.33 USDT)_
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $73.13 USDT
+📊 Offene Positionen: 1
+  ETH LONG | Entry: $2,070.82 | 🔴 P&L: $-0.99
+
+ETH: $2,056.6500 | SOL: $78.9330 | AVAX: $8.7490
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $2,058.26
+   Low:  $2,051.51
+   Range: $6.75
+
+📊 SOL:
+   High: $78.98
+   Low:  $78.83
+   Range: $0.15
+
+📊 AVAX:
+   High: $8.76
+   Low:  $8.73
+   Range: $0.02
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+📊 Bestehende Positionen: ETH LONG
+
+🔍 Suche Breakouts...
+   ⏭️  ETH: übersprungen (Position bereits offen)
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+📊 Bestehende Positionen: ETH LONG
+
+🔍 Suche Breakouts...
+   ⏭️  ETH: übersprungen (Position bereits offen)
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 *Tokyo Session Abschluss*
+
+*Breakout-Check:*
+  • ETH: ✅ Kein Breakout
+  • SOL: 🟢 *LONG* ($0.66)
+  • AVAX: ✅ Kein Breakout
+
+*Trade:* ❌ Nicht ausgeführt
+*Grund:* Unbekannt – Script-Check nötig!
+
+*Account Equity:* $72.59 USDT
+*P&L vs Start:* 📈 +$4.26 (+6.23%)
+_(Startkapital: $68.33 USDT)_
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $70.82 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,109.9600 | SOL: $81.8670 | AVAX: $9.0680
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $2,134.59
+   Low:  $2,109.29
+   Range: $25.30
+
+📊 SOL:
+   High: $82.96
+   Low:  $81.85
+   Range: $1.11
+
+📊 AVAX:
+   High: $9.19
+   Low:  $9.06
+   Range: $0.12
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+
+🎯 BREAKOUT!
+   AVAX LONG
+   Preis: $9.4240
+   Box:   $9.0640 – $9.1890
+   Distanz: $0.2350
+
+💰 Balance: $70.82 USDT | Risk/Trade: $1.42
+
+🚀 Führe long Trade aus...
+✅ Leverage 5x gesetzt für AVAX
+   🧹 Bereinige verbleibende TP/SL-Orders für AVAX...
+⚠️  Cancel TP/SL Fehler: 400 Client Error: Bad Request for url: https://api.bitget.com/api/v2/mix/order/orders-plan-pending?productType=USDT-FUTURES&symbol=AVAXUSDT
+
+❌ TRADE FEHLGESCHLAGEN: 400 Client Error: Bad Request for url: https://api.bitget.com/api/v2/mix/order/place-order
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 *Tokyo Session Abschluss*
+
+*Breakout-Check:*
+  • ETH: ✅ Kein Breakout
+  • SOL: ✅ Kein Breakout
+  • AVAX: 🟢 *LONG* ($0.29)
+
+*Trade:* ❌ Nicht ausgeführt
+*Grund:* Unbekannt – Script-Check nötig!
+
+*Account Equity:* $70.82 USDT
+*P&L vs Start:* 📈 +$2.49 (+3.64%)
+_(Startkapital: $68.33 USDT)_
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $69.09 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,106.2100 | SOL: $79.9760 | AVAX: $8.8850 | XRP: $1.3200
+
+✅ System bereit fuer Tokyo
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+============================================================
+APEX - Opening Range Capture
+============================================================
+
+📊 ETH:
+   High: $2,109.40
+   Low:  $2,101.86
+   Range: $7.54
+
+📊 SOL:
+   High: $80.17
+   Low:  $79.70
+   Range: $0.48
+
+📊 AVAX:
+   High: $8.91
+   Low:  $8.85
+   Range: $0.06
+
+📊 XRP:
+   High: $1.32
+   Low:  $1.32
+   Range: $0.01
+
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+============================================================
+APEX - Autonomous Trade Check
+============================================================
+📍 Session: TOKYO
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+
+🔍 Suche Breakouts...
+   🔍 APEX TOKYO: Kein Breakout – kein Trade
+✅ Telegram message sent
+NO_REPLY
+✅ Credentials geladen: bg_289d1...
+✅ BitgetClient initialisiert [LIVE]
+🌏 *Tokyo Session Abschluss*
+
+*Breakout-Check:*
+  • ETH: ✅ Kein Breakout
+  • SOL: ✅ Kein Breakout
+  • AVAX: ✅ Kein Breakout
+  • XRP: ✅ Kein Breakout
+
+*Trade:* ✅ Korrekt geskippt (kein Breakout)
+
+*Account Equity:* $69.09 USDT
+*P&L vs Start:* 📈 +$0.76 (+1.12%)
+_(Startkapital: $68.33 USDT)_
+✅ Telegram message sent
+NO_REPLY
+[2026-04-08 02:00:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-08 02:00:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-08 02:00:03] 🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $70.12 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,239.3500 | SOL: $85.5200 | AVAX: $9.4290 | XRP: $1.3779
+
+✅ System bereit fuer Tokyo
+[2026-04-08 02:00:03] ✅ Telegram message sent
+[2026-04-08 02:00:03] NO_REPLY
+[2026-04-08 02:15:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-08 02:15:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-08 02:15:01] ============================================================
+[2026-04-08 02:15:01] APEX - Opening Range Capture
+[2026-04-08 02:15:01] ============================================================
+[2026-04-08 02:15:01] 
+📊 ETH:
+[2026-04-08 02:15:01]    High: $2,259.92
+[2026-04-08 02:15:01]    Low:  $2,237.46
+[2026-04-08 02:15:01]    Range: $22.46
+[2026-04-08 02:15:02] 
+📊 SOL:
+[2026-04-08 02:15:02]    High: $85.86
+[2026-04-08 02:15:02]    Low:  $85.20
+[2026-04-08 02:15:02]    Range: $0.66
+[2026-04-08 02:15:04] 
+📊 AVAX:
+[2026-04-08 02:15:04]    High: $9.47
+[2026-04-08 02:15:04]    Low:  $9.42
+[2026-04-08 02:15:04]    Range: $0.05
+[2026-04-08 02:15:06] 
+📊 XRP:
+[2026-04-08 02:15:06]    High: $1.38
+[2026-04-08 02:15:06]    Low:  $1.37
+[2026-04-08 02:15:06]    Range: $0.01
+[2026-04-08 02:15:07] 
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+[2026-04-08 02:15:07] ✅ Telegram message sent
+[2026-04-08 02:15:07] NO_REPLY
+[2026-04-08 02:30:01] ============================================================
+[2026-04-08 02:30:01] APEX - Autonomous Trade Check
+[2026-04-08 02:30:01] ============================================================
+[2026-04-08 02:30:01] 📍 Session: TOKYO
+[2026-04-08 02:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-08 02:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-08 02:30:01] 
+🔍 Suche Breakouts...
+[2026-04-08 02:30:02] 
+🎯 BREAKOUT!
+[2026-04-08 02:30:02]    SOL SHORT
+[2026-04-08 02:30:02]    Preis: $84.8810
+[2026-04-08 02:30:02]    Box:   $85.2020 – $85.8570
+[2026-04-08 02:30:02]    Distanz: $0.3210
+[2026-04-08 02:30:03] 
+💰 Balance: $70.12 USDT | Risk/Trade: $1.40
+[2026-04-08 02:30:03] 
+🚀 Führe short Trade aus...
+[2026-04-08 02:30:03] ✅ Leverage 5x gesetzt für SOL
+[2026-04-08 02:30:03]    🧹 Bereinige verbleibende TP/SL-Orders für SOL...
+[2026-04-08 02:30:04]    ℹ️  Plan-Order Abfrage fehlgeschlagen (400 Client Error: Bad Request for url: https://api.bitget.com/api/v2/mix/order/orders-plan-pending?productType=USDT-FUTURES&symbol=SOLUSDT | Body: {"code":"400172","msg":"Parameter verification failed","requestTime":1775608204031,"data":null}) – keine Orphans angenommen
+[2026-04-08 02:30:11]    ✅ SL gesetzt
+[2026-04-08 02:30:12]    ✅ TP1 1:1 @ $83.8821 (Size 0.7) gesetzt
+[2026-04-08 02:30:14]    ❌ TP2 Trailing @ Aktivierung $82.8522 | Trail 0.61% (Size 0.6) FEHLER: 400 Client Error: Bad Request for url: https://api.bitget.com/api/v2/mix/order/place-tpsl-order | Body: {"code":"40812","msg":"The condition rangeRate is not met","requestTime":1775608214615,"data":null}
+[2026-04-08 02:30:14] 
+⚠️  TP unvollständig (TP1=True, TP2=False) – SL aktiv, Position läuft
+[2026-04-08 02:30:14] ✅ Telegram message sent
+[2026-04-08 02:30:14] 
+✅ TRADE AUSGEFÜHRT
+[2026-04-08 02:30:14]    Entry:       $84.9120
+[2026-04-08 02:30:14]    Size:        1.3
+[2026-04-08 02:30:14]    Stop-Loss:   $85.9419  (Risk: $1.40)
+[2026-04-08 02:30:14]    TP1 (1:1):   $83.8821  (Size 0.7)
+[2026-04-08 02:30:14]    TP2 Trailing: Aktivierung @ $82.8522 | Trail 0.61% (Size 0.6)
+[2026-04-08 02:30:14]    Hebel:       5x
+[2026-04-08 02:30:14] ✅ Telegram message sent
+[2026-04-08 02:30:14] NO_REPLY
+[2026-04-08 02:45:01] ============================================================
+[2026-04-08 02:45:01] APEX - Autonomous Trade Check
+[2026-04-08 02:45:01] ============================================================
+[2026-04-08 02:45:01] 📍 Session: TOKYO
+[2026-04-08 02:45:01] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-08 02:45:01] ✅ Telegram message sent
+[2026-04-08 02:45:01] NO_REPLY
+[2026-04-08 03:00:01] ============================================================
+[2026-04-08 03:00:01] APEX - Autonomous Trade Check
+[2026-04-08 03:00:01] ============================================================
+[2026-04-08 03:00:01] 📍 Session: TOKYO
+[2026-04-08 03:00:01] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-08 03:00:01] ✅ Telegram message sent
+[2026-04-08 03:00:01] NO_REPLY
+[2026-04-08 03:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-08 03:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-08 03:30:02] 🌏 *Tokyo Session Abschluss*
+
+*Trade:* ✅ 🔴 *SOL SHORT* @ $84.9120
+  SL: $85.9419 | TP1: $83.8821
+
+*Account Equity:* $70.64 USDT
+*P&L vs Start:* 📈 +$2.31 (+3.37%)
+_(Startkapital: $68.33 USDT)_
+[2026-04-08 03:30:02] ✅ Telegram message sent
+[2026-04-08 03:30:02] NO_REPLY
+[2026-04-09 02:00:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-09 02:00:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-09 02:00:03] 🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $70.10 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,189.2000 | SOL: $82.5320 | AVAX: $9.0440 | XRP: $1.3422
+
+✅ System bereit fuer Tokyo
+[2026-04-09 02:00:03] ✅ Telegram message sent
+[2026-04-09 02:00:03] NO_REPLY
+[2026-04-09 02:15:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-09 02:15:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-09 02:15:01] ============================================================
+[2026-04-09 02:15:01] APEX - Opening Range Capture
+[2026-04-09 02:15:01] ============================================================
+[2026-04-09 02:15:02] 
+📊 ETH:
+[2026-04-09 02:15:02]    High: $2,193.48
+[2026-04-09 02:15:02]    Low:  $2,187.59
+[2026-04-09 02:15:02]    Range: $5.89
+[2026-04-09 02:15:03] 
+📊 SOL:
+[2026-04-09 02:15:03]    High: $82.61
+[2026-04-09 02:15:03]    Low:  $82.40
+[2026-04-09 02:15:03]    Range: $0.20
+[2026-04-09 02:15:04] 
+📊 AVAX:
+[2026-04-09 02:15:04]    High: $9.05
+[2026-04-09 02:15:04]    Low:  $9.00
+[2026-04-09 02:15:04]    Range: $0.05
+[2026-04-09 02:15:05] 
+📊 XRP:
+[2026-04-09 02:15:05]    High: $1.34
+[2026-04-09 02:15:05]    Low:  $1.34
+[2026-04-09 02:15:05]    Range: $0.00
+[2026-04-09 02:15:06] 
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+[2026-04-09 02:15:07] ✅ Telegram message sent
+[2026-04-09 02:15:07] NO_REPLY
+[2026-04-09 02:30:01] ============================================================
+[2026-04-09 02:30:01] APEX - Autonomous Trade Check
+[2026-04-09 02:30:01] ============================================================
+[2026-04-09 02:30:01] 📍 Session: TOKYO
+[2026-04-09 02:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-09 02:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-09 02:30:01] 
+🔍 Suche Breakouts...
+[2026-04-09 02:30:03] 
+🎯 BREAKOUT!
+[2026-04-09 02:30:03]    XRP SHORT
+[2026-04-09 02:30:03]    Preis: $1.3366
+[2026-04-09 02:30:03]    Box:   $1.3395 – $1.3425
+[2026-04-09 02:30:03]    Distanz: $0.0029
+[2026-04-09 02:30:03] 
+💰 Balance: $70.10 USDT | Risk/Trade: $1.40
+[2026-04-09 02:30:03] 
+🚀 Führe short Trade aus...
+[2026-04-09 02:30:04] ✅ Leverage 5x gesetzt für XRP
+[2026-04-09 02:30:04]    🧹 Bereinige verbleibende TP/SL-Orders für XRP...
+[2026-04-09 02:30:04]    ℹ️  Plan-Order Abfrage fehlgeschlagen (400 Client Error: Bad Request for url: https://api.bitget.com/api/v2/mix/order/orders-plan-pending?productType=USDT-FUTURES&symbol=XRPUSDT | Body: {"code":"400172","msg":"Parameter verification failed","requestTime":1775694604381,"data":null}) – keine Orphans angenommen
+[2026-04-09 02:30:11]    ✅ SL gesetzt
+[2026-04-09 02:30:12]    ✅ TP1 1:1 @ $1.3304 (Size 97.0) gesetzt
+[2026-04-09 02:30:12]    ✅ TP2 Trailing @ Aktivierung $1.3236 | Trail 0.25% (Size 97.0) gesetzt
+[2026-04-09 02:30:12] 
+✅ TRADE AUSGEFÜHRT
+[2026-04-09 02:30:12]    Entry:       $1.3371
+[2026-04-09 02:30:12]    Size:        194.0
+[2026-04-09 02:30:12]    Stop-Loss:   $1.3438  (Risk: $1.40)
+[2026-04-09 02:30:12]    TP1 (1:1):   $1.3304  (Size 97.0)
+[2026-04-09 02:30:12]    TP2 Trailing: Aktivierung @ $1.3236 | Trail 0.25% (Size 97.0)
+[2026-04-09 02:30:12]    Hebel:       5x
+[2026-04-09 02:30:12] ✅ Telegram message sent
+[2026-04-09 02:30:12] NO_REPLY
+[2026-04-09 02:45:01] ============================================================
+[2026-04-09 02:45:01] APEX - Autonomous Trade Check
+[2026-04-09 02:45:01] ============================================================
+[2026-04-09 02:45:01] 📍 Session: TOKYO
+[2026-04-09 02:45:01] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-09 02:45:01] ✅ Telegram message sent
+[2026-04-09 02:45:01] NO_REPLY
+[2026-04-09 03:00:02] ============================================================
+[2026-04-09 03:00:02] APEX - Autonomous Trade Check
+[2026-04-09 03:00:02] ============================================================
+[2026-04-09 03:00:02] 📍 Session: TOKYO
+[2026-04-09 03:00:02] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-09 03:00:02] ✅ Telegram message sent
+[2026-04-09 03:00:02] NO_REPLY
+[2026-04-09 03:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-09 03:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-09 03:30:01] 🌏 *Tokyo Session Abschluss*
+
+*Trade:* ✅ 🔴 *XRP SHORT* @ $1.3371
+  SL: $1.3438 | TP1: $1.3304
+
+*Account Equity:* $71.54 USDT
+*P&L vs Start:* 📈 +$3.21 (+4.69%)
+_(Startkapital: $68.33 USDT)_
+[2026-04-09 03:30:01] ✅ Telegram message sent
+[2026-04-09 03:30:01] NO_REPLY
+[2026-04-10 02:00:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-10 02:00:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-10 02:00:03] 🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $69.36 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,189.1200 | SOL: $83.2840 | AVAX: $9.3600 | XRP: $1.3433
+
+✅ System bereit fuer Tokyo
+[2026-04-10 02:00:03] ✅ Telegram message sent
+[2026-04-10 02:00:03] NO_REPLY
+[2026-04-10 02:15:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-10 02:15:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-10 02:15:01] ============================================================
+[2026-04-10 02:15:01] APEX - Opening Range Capture
+[2026-04-10 02:15:01] ============================================================
+[2026-04-10 02:15:01] 
+📊 ETH:
+[2026-04-10 02:15:01]    High: $2,190.42
+[2026-04-10 02:15:01]    Low:  $2,184.91
+[2026-04-10 02:15:01]    Range: $5.51
+[2026-04-10 02:15:03] 
+📊 SOL:
+[2026-04-10 02:15:03]    High: $83.31
+[2026-04-10 02:15:03]    Low:  $82.98
+[2026-04-10 02:15:03]    Range: $0.33
+[2026-04-10 02:15:04] 
+📊 AVAX:
+[2026-04-10 02:15:04]    High: $9.39
+[2026-04-10 02:15:04]    Low:  $9.33
+[2026-04-10 02:15:04]    Range: $0.07
+[2026-04-10 02:15:05] 
+📊 XRP:
+[2026-04-10 02:15:05]    High: $1.35
+[2026-04-10 02:15:05]    Low:  $1.34
+[2026-04-10 02:15:05]    Range: $0.00
+[2026-04-10 02:15:06] 
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+[2026-04-10 02:15:06] ✅ Telegram message sent
+[2026-04-10 02:15:06] NO_REPLY
+[2026-04-10 02:30:01] ============================================================
+[2026-04-10 02:30:01] APEX - Autonomous Trade Check
+[2026-04-10 02:30:01] ============================================================
+[2026-04-10 02:30:01] 📍 Session: TOKYO
+[2026-04-10 02:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-10 02:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-10 02:30:01] 
+🔍 Suche Breakouts...
+[2026-04-10 02:30:03]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-10 02:30:03] ✅ Telegram message sent
+[2026-04-10 02:30:03] NO_REPLY
+[2026-04-10 02:45:01] ============================================================
+[2026-04-10 02:45:01] APEX - Autonomous Trade Check
+[2026-04-10 02:45:01] ============================================================
+[2026-04-10 02:45:01] 📍 Session: TOKYO
+[2026-04-10 02:45:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-10 02:45:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-10 02:45:01] 
+🔍 Suche Breakouts...
+[2026-04-10 02:45:03]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-10 02:45:03] ✅ Telegram message sent
+[2026-04-10 02:45:03] NO_REPLY
+[2026-04-10 03:00:01] ============================================================
+[2026-04-10 03:00:01] APEX - Autonomous Trade Check
+[2026-04-10 03:00:01] ============================================================
+[2026-04-10 03:00:01] 📍 Session: TOKYO
+[2026-04-10 03:00:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-10 03:00:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-10 03:00:01] 
+🔍 Suche Breakouts...
+[2026-04-10 03:00:02]    📐 Trend-Kontext: EMA200=2207.2831 | ATR14=9.9546 | Richtung=below | Box/ATR=0.554
+[2026-04-10 03:00:02] 
+🎯 BREAKOUT!
+[2026-04-10 03:00:02]    ETH LONG
+[2026-04-10 03:00:02]    Preis: $2,194.2900
+[2026-04-10 03:00:02]    Box:   $2,184.9100 – $2,190.4200
+[2026-04-10 03:00:02]    Distanz: $3.8700
+[2026-04-10 03:00:03] 
+💰 Balance: $69.36 USDT | Risk/Trade: $1.39
+[2026-04-10 03:00:03] 
+🚀 Führe long Trade aus...
+[2026-04-10 03:00:04] ✅ Leverage 5x gesetzt für ETH
+[2026-04-10 03:00:04]    🧹 Bereinige verbleibende TP/SL-Orders für ETH...
+[2026-04-10 03:00:04]    ℹ️  Plan-Order Abfrage fehlgeschlagen (400 Client Error: Bad Request for url: https://api.bitget.com/api/v2/mix/order/orders-plan-pending?productType=USDT-FUTURES&symbol=ETHUSDT&limit=20 | Body: {"code":"400172","msg":"Parameter verification failed","requestTime":1775782804628,"data":null}) – keine Orphans angenommen
+[2026-04-10 03:00:07]    📊 Market-Structure: OI=0 | L/S=0.000 | Taker-Buy=0.500
+[2026-04-10 03:00:13]    ✅ SL gesetzt
+[2026-04-10 03:00:13]    ✅ TP1 1:1 @ $2,202.9243 (Size 0.06) gesetzt
+[2026-04-10 03:00:13]    ✅ TP2 3:1 @ $2,223.1329 (Size 0.06) gesetzt
+[2026-04-10 03:00:13] 
+✅ TRADE AUSGEFÜHRT
+[2026-04-10 03:00:13]    Entry:       $2,192.8200
+[2026-04-10 03:00:13]    Size:        0.12
+[2026-04-10 03:00:13]    Stop-Loss:   $2,182.7157  (Risk: $1.39)
+[2026-04-10 03:00:13]    TP1 (1:1):   $2,202.9243  (Size 0.06)
+[2026-04-10 03:00:13]    TP2 (3:1):   $2,223.1329  (Size 0.06)
+[2026-04-10 03:00:13]    Hebel:       5x
+[2026-04-10 03:00:13] ✅ Telegram message sent
+[2026-04-10 03:00:13] NO_REPLY
+[2026-04-10 03:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-10 03:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-10 03:30:01] 🌏 *Tokyo Session Abschluss*
+
+*Trade:* ✅ 🟢 *ETH LONG* @ $2,192.8200
+  SL: $2,182.7157 | TP1: $2,202.9243
+  Ergebnis: ❌ $-1.24 (-0.9R) LOSS
+
+*Account Equity:* $67.80 USDT
+*P&L vs Start:* 📉 $-0.53 (-0.78%)
+_(Startkapital: $68.33 USDT)_
+[2026-04-10 03:30:01] ✅ Telegram message sent
+[2026-04-10 03:30:01] NO_REPLY
+[2026-04-13 02:00:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:00:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:00:03] 🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $64.42 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,190.7000 | SOL: $81.5000 | AVAX: $9.0240 | XRP: $1.3240
+
+✅ System bereit fuer Tokyo
+[2026-04-13 02:00:03] ✅ Telegram message sent
+[2026-04-13 02:00:03] NO_REPLY
+[2026-04-13 02:00:11] ============================================================
+[2026-04-13 02:00:11] APEX - Autonomous Trade Check
+[2026-04-13 02:00:11] ============================================================
+[2026-04-13 02:00:11] 📍 Session: TOKYO
+[2026-04-13 02:00:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:00:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:00:11] 
+🔍 Suche Breakouts...
+[2026-04-13 02:00:11]    ⏱️  Scan 02:00:11 | Candle-Close 02:00 | Latenz 11.8s
+[2026-04-13 02:00:11]    ⏭️  ETH: Box 3165 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:00:11]    ⏭️  SOL: Box 3165 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:00:11]    ⏭️  AVAX: Box 3165 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:00:11]    ⏭️  XRP: Box 3165 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:00:11]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-13 02:00:11] ✅ Telegram message sent
+[2026-04-13 02:00:11] NO_REPLY
+[2026-04-13 02:05:12] ============================================================
+[2026-04-13 02:05:12] APEX - Autonomous Trade Check
+[2026-04-13 02:05:12] ============================================================
+[2026-04-13 02:05:12] 📍 Session: TOKYO
+[2026-04-13 02:05:12] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:05:12] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:05:12] 
+🔍 Suche Breakouts...
+[2026-04-13 02:05:12]    ⏱️  Scan 02:05:12 | Candle-Close 02:05 | Latenz 12.5s
+[2026-04-13 02:05:12]    ⏭️  ETH: Box 3170 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:05:12]    ⏭️  SOL: Box 3170 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:05:12]    ⏭️  AVAX: Box 3170 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:05:12]    ⏭️  XRP: Box 3170 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:05:12]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-13 02:05:12] ✅ Telegram message sent
+[2026-04-13 02:05:12] NO_REPLY
+[2026-04-13 02:10:11] ============================================================
+[2026-04-13 02:10:11] APEX - Autonomous Trade Check
+[2026-04-13 02:10:11] ============================================================
+[2026-04-13 02:10:11] 📍 Session: TOKYO
+[2026-04-13 02:10:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:10:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:10:11] 
+🔍 Suche Breakouts...
+[2026-04-13 02:10:12]    ⏱️  Scan 02:10:12 | Candle-Close 02:10 | Latenz 12.2s
+[2026-04-13 02:10:12]    ⏭️  ETH: Box 3175 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:10:12]    ⏭️  SOL: Box 3175 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:10:12]    ⏭️  AVAX: Box 3175 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:10:12]    ⏭️  XRP: Box 3175 Min alt (Max 120 Min) – übersprungen
+[2026-04-13 02:10:12]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-13 02:10:12] ✅ Telegram message sent
+[2026-04-13 02:10:12] NO_REPLY
+[2026-04-13 02:15:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:15:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:15:01] ============================================================
+[2026-04-13 02:15:01] APEX - Opening Range Capture
+[2026-04-13 02:15:01] ============================================================
+[2026-04-13 02:15:01] 
+📊 ETH:
+[2026-04-13 02:15:01]    High: $2,193.43
+[2026-04-13 02:15:01]    Low:  $2,185.49
+[2026-04-13 02:15:01]    Range: $7.94
+[2026-04-13 02:15:03] 
+📊 SOL:
+[2026-04-13 02:15:03]    High: $81.851
+[2026-04-13 02:15:03]    Low:  $81.361
+[2026-04-13 02:15:03]    Range: $0.490
+[2026-04-13 02:15:04] ⚠️  AVAX: Box Range $0.0380 < Min $0.0400 – übersprungen
+[2026-04-13 02:15:04] 
+📊 XRP:
+[2026-04-13 02:15:04]    High: $1.3282
+[2026-04-13 02:15:04]    Low:  $1.3223
+[2026-04-13 02:15:04]    Range: $0.0059
+[2026-04-13 02:15:05] 
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+[2026-04-13 02:15:05] ✅ Telegram message sent
+[2026-04-13 02:15:05] NO_REPLY
+[2026-04-13 02:15:11] ============================================================
+[2026-04-13 02:15:11] APEX - Autonomous Trade Check
+[2026-04-13 02:15:11] ============================================================
+[2026-04-13 02:15:11] 📍 Session: TOKYO
+[2026-04-13 02:15:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:15:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:15:11] 
+🔍 Suche Breakouts...
+[2026-04-13 02:15:11]    ⏱️  Scan 02:15:11 | Candle-Close 02:15 | Latenz 11.8s
+[2026-04-13 02:15:12]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-13 02:15:12] ✅ Telegram message sent
+[2026-04-13 02:15:12] NO_REPLY
+[2026-04-13 02:20:12] ============================================================
+[2026-04-13 02:20:12] APEX - Autonomous Trade Check
+[2026-04-13 02:20:12] ============================================================
+[2026-04-13 02:20:12] 📍 Session: TOKYO
+[2026-04-13 02:20:12] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:20:12] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:20:12] 
+🔍 Suche Breakouts...
+[2026-04-13 02:20:12]    ⏱️  Scan 02:20:12 | Candle-Close 02:20 | Latenz 12.3s
+[2026-04-13 02:20:13]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-13 02:20:13] ✅ Telegram message sent
+[2026-04-13 02:20:13] NO_REPLY
+[2026-04-13 02:25:11] ============================================================
+[2026-04-13 02:25:11] APEX - Autonomous Trade Check
+[2026-04-13 02:25:11] ============================================================
+[2026-04-13 02:25:11] 📍 Session: TOKYO
+[2026-04-13 02:25:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 02:25:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 02:25:11] 
+🔍 Suche Breakouts...
+[2026-04-13 02:25:11]    ⏱️  Scan 02:25:11 | Candle-Close 02:25 | Latenz 11.9s
+[2026-04-13 02:25:12]    🕯️  ETH: Body 85% | Close-Pos 87% ↑ | Vol 1.64x
+[2026-04-13 02:25:13]    📐 Trend-Kontext: EMA200=2230.7080 | ATR14=8.7596 | 15m=below ❌ | 4H=above ✅ | Box/ATR=0.906
+[2026-04-13 02:25:13] 
+🎯 BREAKOUT!
+[2026-04-13 02:25:13]    ETH LONG
+[2026-04-13 02:25:13]    Preis: $2,196.6200
+[2026-04-13 02:25:13]    Box:   $2,185.4900 – $2,193.4300
+[2026-04-13 02:25:13]    Distanz: $3.1900
+[2026-04-13 02:25:13] 
+💰 Balance: $64.42 USDT | Risk/Trade: $1.29
+[2026-04-13 02:25:13] 
+🚀 Führe long Trade aus...
+[2026-04-13 02:25:14] ✅ Leverage 5x gesetzt für ETH
+[2026-04-13 02:25:14]    🧹 Bereinige verbleibende TP/SL-Orders für ETH...
+[2026-04-13 02:25:17]    📊 Market-Structure: OI=719232 | Long%=68.32% | Taker=0.373 | Funding=+0.0100%
+[2026-04-13 02:25:22]    ✅ SL aktiv (Preset)
+[2026-04-13 02:25:22]    ✅ TP1 1:1 @ $2,210.5066 (Size 0.05) gesetzt
+[2026-04-13 02:25:23]    ✅ TP2 3:1 @ $2,237.7199 (Size 0.05) gesetzt
+[2026-04-13 02:25:23] 
+✅ TRADE AUSGEFÜHRT
+[2026-04-13 02:25:23]    Entry:       $2,196.9000
+[2026-04-13 02:25:23]    Size:        0.1
+[2026-04-13 02:25:23]    Stop-Loss:   $2,183.2934  (Risk: $1.29)
+[2026-04-13 02:25:23]    TP1 (1:1):   $2,210.5066  (Size 0.05)
+[2026-04-13 02:25:23]    TP2 (3:1):   $2,237.7199  (Size 0.05)
+[2026-04-13 02:25:23]    Hebel:       5x
+[2026-04-13 02:25:23] ✅ Telegram message sent
+[2026-04-13 02:25:23] NO_REPLY
+[2026-04-13 02:30:11] ============================================================
+[2026-04-13 02:30:11] APEX - Autonomous Trade Check
+[2026-04-13 02:30:11] ============================================================
+[2026-04-13 02:30:11] 📍 Session: TOKYO
+[2026-04-13 02:30:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 02:30:11] ✅ Telegram message sent
+[2026-04-13 02:30:11] NO_REPLY
+[2026-04-13 02:35:11] ============================================================
+[2026-04-13 02:35:11] APEX - Autonomous Trade Check
+[2026-04-13 02:35:11] ============================================================
+[2026-04-13 02:35:11] 📍 Session: TOKYO
+[2026-04-13 02:35:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 02:35:11] ✅ Telegram message sent
+[2026-04-13 02:35:11] NO_REPLY
+[2026-04-13 02:40:11] ============================================================
+[2026-04-13 02:40:11] APEX - Autonomous Trade Check
+[2026-04-13 02:40:11] ============================================================
+[2026-04-13 02:40:11] 📍 Session: TOKYO
+[2026-04-13 02:40:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 02:40:11] ✅ Telegram message sent
+[2026-04-13 02:40:11] NO_REPLY
+[2026-04-13 02:45:11] ============================================================
+[2026-04-13 02:45:11] APEX - Autonomous Trade Check
+[2026-04-13 02:45:11] ============================================================
+[2026-04-13 02:45:11] 📍 Session: TOKYO
+[2026-04-13 02:45:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 02:45:11] ✅ Telegram message sent
+[2026-04-13 02:45:11] NO_REPLY
+[2026-04-13 02:50:11] ============================================================
+[2026-04-13 02:50:11] APEX - Autonomous Trade Check
+[2026-04-13 02:50:11] ============================================================
+[2026-04-13 02:50:11] 📍 Session: TOKYO
+[2026-04-13 02:50:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 02:50:11] ✅ Telegram message sent
+[2026-04-13 02:50:11] NO_REPLY
+[2026-04-13 02:55:12] ============================================================
+[2026-04-13 02:55:12] APEX - Autonomous Trade Check
+[2026-04-13 02:55:12] ============================================================
+[2026-04-13 02:55:12] 📍 Session: TOKYO
+[2026-04-13 02:55:12] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 02:55:12] ✅ Telegram message sent
+[2026-04-13 02:55:12] NO_REPLY
+[2026-04-13 03:00:11] ============================================================
+[2026-04-13 03:00:11] APEX - Autonomous Trade Check
+[2026-04-13 03:00:11] ============================================================
+[2026-04-13 03:00:11] 📍 Session: TOKYO
+[2026-04-13 03:00:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:00:11] ✅ Telegram message sent
+[2026-04-13 03:00:11] NO_REPLY
+[2026-04-13 03:05:11] ============================================================
+[2026-04-13 03:05:11] APEX - Autonomous Trade Check
+[2026-04-13 03:05:11] ============================================================
+[2026-04-13 03:05:11] 📍 Session: TOKYO
+[2026-04-13 03:05:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:05:11] ✅ Telegram message sent
+[2026-04-13 03:05:11] NO_REPLY
+[2026-04-13 03:10:12] ============================================================
+[2026-04-13 03:10:12] APEX - Autonomous Trade Check
+[2026-04-13 03:10:12] ============================================================
+[2026-04-13 03:10:12] 📍 Session: TOKYO
+[2026-04-13 03:10:12] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:10:12] ✅ Telegram message sent
+[2026-04-13 03:10:12] NO_REPLY
+[2026-04-13 03:15:11] ============================================================
+[2026-04-13 03:15:11] APEX - Autonomous Trade Check
+[2026-04-13 03:15:11] ============================================================
+[2026-04-13 03:15:11] 📍 Session: TOKYO
+[2026-04-13 03:15:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:15:11] ✅ Telegram message sent
+[2026-04-13 03:15:11] NO_REPLY
+[2026-04-13 03:20:11] ============================================================
+[2026-04-13 03:20:11] APEX - Autonomous Trade Check
+[2026-04-13 03:20:11] ============================================================
+[2026-04-13 03:20:11] 📍 Session: TOKYO
+[2026-04-13 03:20:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:20:11] ✅ Telegram message sent
+[2026-04-13 03:20:11] NO_REPLY
+[2026-04-13 03:25:12] ============================================================
+[2026-04-13 03:25:12] APEX - Autonomous Trade Check
+[2026-04-13 03:25:12] ============================================================
+[2026-04-13 03:25:12] 📍 Session: TOKYO
+[2026-04-13 03:25:12] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:25:12] ✅ Telegram message sent
+[2026-04-13 03:25:12] NO_REPLY
+[2026-04-13 03:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-13 03:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-13 03:30:01] 🌏 *Tokyo Session Abschluss*
+
+*Trade:* ✅ 🟢 *ETH LONG* @ $2,196.9000
+  SL: $2,183.2934 | TP1: $2,210.5066
+
+*Account Equity:* $64.84 USDT
+*P&L vs Start:* 📉 $-3.49 (-5.11%)
+_(Startkapital: $68.33 USDT)_
+[2026-04-13 03:30:01] ✅ Telegram message sent
+[2026-04-13 03:30:01] NO_REPLY
+[2026-04-13 03:30:11] ============================================================
+[2026-04-13 03:30:11] APEX - Autonomous Trade Check
+[2026-04-13 03:30:11] ============================================================
+[2026-04-13 03:30:11] 📍 Session: TOKYO
+[2026-04-13 03:30:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:30:11] ✅ Telegram message sent
+[2026-04-13 03:30:11] NO_REPLY
+[2026-04-13 03:35:11] ============================================================
+[2026-04-13 03:35:11] APEX - Autonomous Trade Check
+[2026-04-13 03:35:11] ============================================================
+[2026-04-13 03:35:11] 📍 Session: TOKYO
+[2026-04-13 03:35:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:35:11] ✅ Telegram message sent
+[2026-04-13 03:35:11] NO_REPLY
+[2026-04-13 03:40:11] ============================================================
+[2026-04-13 03:40:11] APEX - Autonomous Trade Check
+[2026-04-13 03:40:11] ============================================================
+[2026-04-13 03:40:11] 📍 Session: TOKYO
+[2026-04-13 03:40:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:40:12] ✅ Telegram message sent
+[2026-04-13 03:40:12] NO_REPLY
+[2026-04-13 03:45:11] ============================================================
+[2026-04-13 03:45:11] APEX - Autonomous Trade Check
+[2026-04-13 03:45:11] ============================================================
+[2026-04-13 03:45:11] 📍 Session: TOKYO
+[2026-04-13 03:45:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:45:11] ✅ Telegram message sent
+[2026-04-13 03:45:11] NO_REPLY
+[2026-04-13 03:50:11] ============================================================
+[2026-04-13 03:50:11] APEX - Autonomous Trade Check
+[2026-04-13 03:50:11] ============================================================
+[2026-04-13 03:50:11] 📍 Session: TOKYO
+[2026-04-13 03:50:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:50:11] ✅ Telegram message sent
+[2026-04-13 03:50:11] NO_REPLY
+[2026-04-13 03:55:11] ============================================================
+[2026-04-13 03:55:11] APEX - Autonomous Trade Check
+[2026-04-13 03:55:11] ============================================================
+[2026-04-13 03:55:11] 📍 Session: TOKYO
+[2026-04-13 03:55:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-13 03:55:11] ✅ Telegram message sent
+[2026-04-13 03:55:12] NO_REPLY
+[2026-04-14 02:00:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 02:00:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 02:00:03] 🌏 APEX Pre-Market: Tokyo
+
+✅ Bitget API verbunden
+💰 Balance: $65.53 USDT
+📊 Keine offenen Positionen
+
+ETH: $2,367.4600 | SOL: $86.4720 | AVAX: $9.6570 | XRP: $1.3751
+
+✅ System bereit fuer Tokyo
+[2026-04-14 02:00:03] ✅ Telegram message sent
+[2026-04-14 02:00:03] NO_REPLY
+[2026-04-14 02:00:11] ============================================================
+[2026-04-14 02:00:11] APEX - Autonomous Trade Check
+[2026-04-14 02:00:11] ============================================================
+[2026-04-14 02:00:11] 📍 Session: TOKYO
+[2026-04-14 02:00:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 02:00:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 02:00:11] 
+🔍 Suche Breakouts...
+[2026-04-14 02:00:11]    ⏱️  Scan 02:00:11 | Candle-Close 02:00 | Latenz 12.0s
+[2026-04-14 02:00:11]    ⏭️  ETH: Box 285 Min alt (Max 120 Min) – übersprungen
+[2026-04-14 02:00:11]    ⏭️  SOL: Box 285 Min alt (Max 120 Min) – übersprungen
+[2026-04-14 02:00:11]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-14 02:00:11] NO_REPLY
+[2026-04-14 02:05:11] ============================================================
+[2026-04-14 02:05:11] APEX - Autonomous Trade Check
+[2026-04-14 02:05:11] ============================================================
+[2026-04-14 02:05:11] 📍 Session: TOKYO
+[2026-04-14 02:05:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 02:05:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 02:05:11] 
+🔍 Suche Breakouts...
+[2026-04-14 02:05:11]    ⏱️  Scan 02:05:11 | Candle-Close 02:05 | Latenz 11.5s
+[2026-04-14 02:05:11]    ⏭️  ETH: Box 290 Min alt (Max 120 Min) – übersprungen
+[2026-04-14 02:05:11]    ⏭️  SOL: Box 290 Min alt (Max 120 Min) – übersprungen
+[2026-04-14 02:05:11]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-14 02:05:11] NO_REPLY
+[2026-04-14 02:10:11] ============================================================
+[2026-04-14 02:10:11] APEX - Autonomous Trade Check
+[2026-04-14 02:10:11] ============================================================
+[2026-04-14 02:10:11] 📍 Session: TOKYO
+[2026-04-14 02:10:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 02:10:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 02:10:11] 
+🔍 Suche Breakouts...
+[2026-04-14 02:10:12]    ⏱️  Scan 02:10:12 | Candle-Close 02:10 | Latenz 12.0s
+[2026-04-14 02:10:12]    ⏭️  ETH: Box 295 Min alt (Max 120 Min) – übersprungen
+[2026-04-14 02:10:12]    ⏭️  SOL: Box 295 Min alt (Max 120 Min) – übersprungen
+[2026-04-14 02:10:12]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-14 02:10:12] NO_REPLY
+[2026-04-14 02:15:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 02:15:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 02:15:01] ============================================================
+[2026-04-14 02:15:01] APEX - Opening Range Capture
+[2026-04-14 02:15:01] ============================================================
+[2026-04-14 02:15:01] 
+📊 ETH:
+[2026-04-14 02:15:01]    High: $2,373.40
+[2026-04-14 02:15:01]    Low:  $2,362.46
+[2026-04-14 02:15:01]    Range: $10.94
+[2026-04-14 02:15:02] 
+📊 SOL:
+[2026-04-14 02:15:02]    High: $86.622
+[2026-04-14 02:15:02]    Low:  $86.232
+[2026-04-14 02:15:02]    Range: $0.390
+[2026-04-14 02:15:04] 
+📊 AVAX:
+[2026-04-14 02:15:04]    High: $9.701
+[2026-04-14 02:15:04]    Low:  $9.613
+[2026-04-14 02:15:04]    Range: $0.088
+[2026-04-14 02:15:05] 
+📊 XRP:
+[2026-04-14 02:15:05]    High: $1.3769
+[2026-04-14 02:15:05]    Low:  $1.3665
+[2026-04-14 02:15:05]    Range: $0.0104
+[2026-04-14 02:15:06] 
+✅ Boxes saved to /root/apex-trading-bot/data/opening_range_boxes.json
+[2026-04-14 02:15:06] NO_REPLY
+[2026-04-14 02:15:11] ============================================================
+[2026-04-14 02:15:11] APEX - Autonomous Trade Check
+[2026-04-14 02:15:11] ============================================================
+[2026-04-14 02:15:11] 📍 Session: TOKYO
+[2026-04-14 02:15:11] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 02:15:11] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 02:15:11] 
+🔍 Suche Breakouts...
+[2026-04-14 02:15:11]    ⏱️  Scan 02:15:11 | Candle-Close 02:15 | Latenz 11.5s
+[2026-04-14 02:15:12]    🔍 APEX TOKYO: Kein Breakout – kein Trade
+[2026-04-14 02:15:12] NO_REPLY
+[2026-04-14 02:20:12] ============================================================
+[2026-04-14 02:20:12] APEX - Autonomous Trade Check
+[2026-04-14 02:20:12] ============================================================
+[2026-04-14 02:20:12] 📍 Session: TOKYO
+[2026-04-14 02:20:12] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 02:20:12] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 02:20:12] 
+🔍 Suche Breakouts...
+[2026-04-14 02:20:12]    ⏱️  Scan 02:20:12 | Candle-Close 02:20 | Latenz 12.3s
+[2026-04-14 02:20:13]    🕯️  AVAX: Body 83% | Close-Pos 7% ↓ | Vol 0.41x
+[2026-04-14 02:20:14]    📐 Trend-Kontext: EMA200=9.1757 | ATR14=0.0660 | 15m=above ❌ | 4H=above ❌ | Box/ATR=1.333
+[2026-04-14 02:20:14] 
+🎯 BREAKOUT!
+[2026-04-14 02:20:14]    AVAX SHORT
+[2026-04-14 02:20:14]    Preis: $9.5770
+[2026-04-14 02:20:14]    Box:   $9.6130 – $9.7010
+[2026-04-14 02:20:14]    Distanz: $0.0360
+[2026-04-14 02:20:14] 
+💰 Balance: $65.53 USDT | Risk/Trade: $1.31
+[2026-04-14 02:20:14] 
+🚀 Führe short Trade aus...
+[2026-04-14 02:20:15] ✅ Leverage 5x gesetzt für AVAX
+[2026-04-14 02:20:15]    🧹 Bereinige verbleibende TP/SL-Orders für AVAX...
+[2026-04-14 02:20:18]    📊 Market-Structure: OI=2412616 | Long%=0.00% | Taker=0.500 | Funding=+0.0100%
+[2026-04-14 02:20:23]    ✅ SL aktiv (Preset)
+[2026-04-14 02:20:24]    ✅ TP1 1:1 @ $9.4414 (Size 4.9) gesetzt
+[2026-04-14 02:20:24]    ✅ TP2 3:1 @ $9.1723 (Size 4.9) gesetzt
+[2026-04-14 02:20:24] 
+✅ TRADE AUSGEFÜHRT
+[2026-04-14 02:20:24]    Entry:       $9.5760
+[2026-04-14 02:20:24]    Size:        9.8
+[2026-04-14 02:20:24]    Stop-Loss:   $9.7106  (Risk: $1.31)
+[2026-04-14 02:20:24]    TP1 (1:1):   $9.4414  (Size 4.9)
+[2026-04-14 02:20:24]    TP2 (3:1):   $9.1723  (Size 4.9)
+[2026-04-14 02:20:24]    Hebel:       5x
+[2026-04-14 02:20:24] ✅ Telegram message sent
+[2026-04-14 02:20:24] NO_REPLY
+[2026-04-14 02:25:11] ============================================================
+[2026-04-14 02:25:11] APEX - Autonomous Trade Check
+[2026-04-14 02:25:11] ============================================================
+[2026-04-14 02:25:11] 📍 Session: TOKYO
+[2026-04-14 02:25:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 02:25:11] NO_REPLY
+[2026-04-14 02:30:12] ============================================================
+[2026-04-14 02:30:12] APEX - Autonomous Trade Check
+[2026-04-14 02:30:12] ============================================================
+[2026-04-14 02:30:12] 📍 Session: TOKYO
+[2026-04-14 02:30:12] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 02:30:12] NO_REPLY
+[2026-04-14 02:35:11] ============================================================
+[2026-04-14 02:35:11] APEX - Autonomous Trade Check
+[2026-04-14 02:35:11] ============================================================
+[2026-04-14 02:35:11] 📍 Session: TOKYO
+[2026-04-14 02:35:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 02:35:11] NO_REPLY
+[2026-04-14 02:40:11] ============================================================
+[2026-04-14 02:40:11] APEX - Autonomous Trade Check
+[2026-04-14 02:40:11] ============================================================
+[2026-04-14 02:40:11] 📍 Session: TOKYO
+[2026-04-14 02:40:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 02:40:11] NO_REPLY
+[2026-04-14 02:45:11] ============================================================
+[2026-04-14 02:45:11] APEX - Autonomous Trade Check
+[2026-04-14 02:45:11] ============================================================
+[2026-04-14 02:45:11] 📍 Session: TOKYO
+[2026-04-14 02:45:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 02:45:11] NO_REPLY
+[2026-04-14 02:50:11] ============================================================
+[2026-04-14 02:50:11] APEX - Autonomous Trade Check
+[2026-04-14 02:50:11] ============================================================
+[2026-04-14 02:50:11] 📍 Session: TOKYO
+[2026-04-14 02:50:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 02:50:11] NO_REPLY
+[2026-04-14 02:55:11] ============================================================
+[2026-04-14 02:55:11] APEX - Autonomous Trade Check
+[2026-04-14 02:55:11] ============================================================
+[2026-04-14 02:55:11] 📍 Session: TOKYO
+[2026-04-14 02:55:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 02:55:11] NO_REPLY
+[2026-04-14 03:00:11] ============================================================
+[2026-04-14 03:00:11] APEX - Autonomous Trade Check
+[2026-04-14 03:00:11] ============================================================
+[2026-04-14 03:00:11] 📍 Session: TOKYO
+[2026-04-14 03:00:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:00:11] NO_REPLY
+[2026-04-14 03:05:11] ============================================================
+[2026-04-14 03:05:11] APEX - Autonomous Trade Check
+[2026-04-14 03:05:11] ============================================================
+[2026-04-14 03:05:11] 📍 Session: TOKYO
+[2026-04-14 03:05:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:05:11] NO_REPLY
+[2026-04-14 03:10:11] ============================================================
+[2026-04-14 03:10:11] APEX - Autonomous Trade Check
+[2026-04-14 03:10:11] ============================================================
+[2026-04-14 03:10:11] 📍 Session: TOKYO
+[2026-04-14 03:10:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:10:11] NO_REPLY
+[2026-04-14 03:15:11] ============================================================
+[2026-04-14 03:15:11] APEX - Autonomous Trade Check
+[2026-04-14 03:15:11] ============================================================
+[2026-04-14 03:15:11] 📍 Session: TOKYO
+[2026-04-14 03:15:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:15:11] NO_REPLY
+[2026-04-14 03:20:11] ============================================================
+[2026-04-14 03:20:11] APEX - Autonomous Trade Check
+[2026-04-14 03:20:11] ============================================================
+[2026-04-14 03:20:11] 📍 Session: TOKYO
+[2026-04-14 03:20:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:20:11] NO_REPLY
+[2026-04-14 03:25:11] ============================================================
+[2026-04-14 03:25:11] APEX - Autonomous Trade Check
+[2026-04-14 03:25:11] ============================================================
+[2026-04-14 03:25:11] 📍 Session: TOKYO
+[2026-04-14 03:25:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:25:11] NO_REPLY
+[2026-04-14 03:30:01] ✅ Credentials geladen: bg_289d1...
+[2026-04-14 03:30:01] ✅ BitgetClient initialisiert [LIVE]
+[2026-04-14 03:30:01] 🌏 *Tokyo Session Abschluss*
+
+*Trade:* ✅ 🔴 *AVAX SHORT* @ $9.5760
+  SL: $9.7106 | TP1: $9.4414
+
+*Account Equity:* $66.32 USDT
+*P&L vs Start:* 📉 $-2.01 (-2.94%)
+_(Startkapital: $68.33 USDT)_
+[2026-04-14 03:30:02] ✅ Telegram message sent
+[2026-04-14 03:30:02] NO_REPLY
+[2026-04-14 03:30:11] ============================================================
+[2026-04-14 03:30:11] APEX - Autonomous Trade Check
+[2026-04-14 03:30:11] ============================================================
+[2026-04-14 03:30:11] 📍 Session: TOKYO
+[2026-04-14 03:30:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:30:11] NO_REPLY
+[2026-04-14 03:35:11] ============================================================
+[2026-04-14 03:35:11] APEX - Autonomous Trade Check
+[2026-04-14 03:35:11] ============================================================
+[2026-04-14 03:35:11] 📍 Session: TOKYO
+[2026-04-14 03:35:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:35:11] NO_REPLY
+[2026-04-14 03:40:12] ============================================================
+[2026-04-14 03:40:12] APEX - Autonomous Trade Check
+[2026-04-14 03:40:12] ============================================================
+[2026-04-14 03:40:12] 📍 Session: TOKYO
+[2026-04-14 03:40:12] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:40:12] NO_REPLY
+[2026-04-14 03:45:11] ============================================================
+[2026-04-14 03:45:11] APEX - Autonomous Trade Check
+[2026-04-14 03:45:11] ============================================================
+[2026-04-14 03:45:11] 📍 Session: TOKYO
+[2026-04-14 03:45:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:45:11] NO_REPLY
+[2026-04-14 03:50:11] ============================================================
+[2026-04-14 03:50:11] APEX - Autonomous Trade Check
+[2026-04-14 03:50:11] ============================================================
+[2026-04-14 03:50:11] 📍 Session: TOKYO
+[2026-04-14 03:50:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:50:11] NO_REPLY
+[2026-04-14 03:55:11] ============================================================
+[2026-04-14 03:55:11] APEX - Autonomous Trade Check
+[2026-04-14 03:55:11] ============================================================
+[2026-04-14 03:55:11] 📍 Session: TOKYO
+[2026-04-14 03:55:11] 
+✅ ⏭️ APEX TOKYO: Skip – bereits getradet
+[2026-04-14 03:55:11] NO_REPLY

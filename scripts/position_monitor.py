@@ -216,8 +216,7 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
 
     print(f"   ✅ BE-SL gesetzt @ ${new_sl:,.4f}")
     send_telegram_notification(
-        f"🛡️ APEX: Break-Even aktiv\n\n"
-        f"{pos.coin} {direction_str}\n"
+        f"🛡️ APEX | BREAK-EVEN | {pos.coin} {direction_str}\n\n"
         f"1R erreicht – SL auf ${new_sl:,.4f} nachgezogen\n"
         f"(Entry: ${entry_price:,.4f} | Buffer: ${fee_buffer:,.4f})"
     )
@@ -368,16 +367,30 @@ def main():
             balance = client.get_balance()
             print(f"\nAktuelle Balance: ${balance:,.2f} USDT")
 
-            emoji = "✅" if total_pnl > 0 else "❌"
-            result_text = f"GEWINN: +${total_pnl:.2f}" if total_pnl > 0 else f"VERLUST: ${total_pnl:.2f}"
+            # Context aus letztem Trade für R-Multiple + Direction
+            last_trade = load_last_trade(coin) or {}
+            direction = (last_trade.get("direction") or "?").upper()
+            entry_price = last_trade.get("entry_price", 0)
+            risk_usd = last_trade.get("risk_usd") or 1.0
+            pnl_r = round(total_pnl / risk_usd, 2) if risk_usd else 0.0
+
+            if total_pnl > 0:
+                emoji, tag = "✅", "WIN"
+            elif total_pnl < 0:
+                emoji, tag = "❌", "LOSS"
+            else:
+                emoji, tag = "⚖️", "BE"
+
+            sign = "+" if total_pnl >= 0 else ""
+            dir_icon = "🟢" if direction == "LONG" else ("🔴" if direction == "SHORT" else "⚪")
 
             message = (
-                f"🎯 APEX TRADE GESCHLOSSEN!\n\n"
-                f"{emoji} {result_text}\n\n"
-                f"Asset: {coin}\n"
-                f"Exit: ${exit_price:,.4f}\n"
-                f"Size: {total_size:.4f}\n\n"
-                f"💰 Neue Balance: ${balance:,.2f} USDT"
+                f"🎯 APEX | EXIT | {coin} {direction}\n\n"
+                f"{emoji} {tag}: {sign}${total_pnl:.2f} ({sign}{pnl_r}R)\n\n"
+                f"{dir_icon} Entry: ${entry_price:,.4f}\n"
+                f"      Exit:  ${exit_price:,.4f}\n"
+                f"      Size:  {total_size:.4f}\n\n"
+                f"💰 Balance: ${balance:,.2f} USDT"
             )
             print(f"\n{emoji} {result_text}")
             send_telegram_notification(message)

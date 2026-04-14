@@ -767,7 +767,6 @@ def main():
             msg = f"⏭️ APEX {session.upper()}: Skip – bereits getradet"
             print(f"\n✅ {msg}")
             log_skip("already_traded", None, session)
-            send_telegram_message(msg)
             print("NO_REPLY")
             return
 
@@ -785,7 +784,6 @@ def main():
         if not breakout:
             msg = f"🔍 APEX {session.upper()}: Kein Breakout – kein Trade"
             print(f"   {msg}")
-            send_telegram_message(msg)
             print("NO_REPLY")
             return
 
@@ -846,14 +844,11 @@ def main():
 
             direction_emoji = "🟢" if result["direction"] == "long" else "🔴"
             msg = (
-                f"🚀 APEX TRADE{dry_tag}\n\n"
-                f"{direction_emoji} {result['asset']} {result['direction'].upper()}\n"
-                f"Entry: ${result['entry']:,.4f}\n"
-                f"Size: {result['size']}\n"
-                f"Stop-Loss: ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
-                f"Exit-Strategie:\n"
-                f"  TP1 (1:1): ${result['take_profit_1']:,.4f} (Size {result['size_tp1']})\n"
-                f"  TP2 (3:1): ${result['take_profit_2']:,.4f} (Size {result['size_tp2']})\n"
+                f"🚀 APEX | ENTRY | {result['asset']} {result['direction'].upper()}{dry_tag}\n\n"
+                f"{direction_emoji} Entry: ${result['entry']:,.4f} | Size: {result['size']}\n"
+                f"🛑 SL:    ${result['stop_loss']:,.4f} (Risk: ${result['risk_usd']:.2f})\n"
+                f"🎯 TP1:   ${result['take_profit_1']:,.4f} (1R · Size {result['size_tp1']})\n"
+                f"🎯 TP2:   ${result['take_profit_2']:,.4f} (3R · Size {result['size_tp2']})\n\n"
                 f"Hebel: {LEVERAGE}x | Split 1:1 + 3:1"
             )
             send_telegram_message(msg)
