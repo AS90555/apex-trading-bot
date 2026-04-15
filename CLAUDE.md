@@ -125,6 +125,46 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-15 — Multi-Asset-Monitor, Freqtrade-Validierung, Telegram-Redesign
+
+**Thema:** Kritische Bugs aus Beobachtungen (Break-Even wurde bei AVAX nicht gesetzt trotz TP1-Hit) analysiert und behoben. Freqtrade-Strategy auf Daten-Validität geprüft. Telegram-Benachrichtigungen komplett neu gestaltet. H-011 eingetragen.
+
+**Bugs gefunden und behoben:**
+
+| # | Bug | Datei | Schwere | Effekt |
+|---|-----|-------|---------|--------|
+| 1 | `positions[0]` — nur erste Position getrackt | `position_monitor.py` | Kritisch | BE/Exit-Logging für alle Positionen außer der ersten fehlte |
+| 2 | `monitor_state.json` Flat-Format — nur ein Coin trackbar | `position_monitor.py` | Kritisch | Bei 2 offenen Positionen falsche BE-Flag-Vererbung möglich |
+| 3 | `df.iloc[-1]` in `custom_stoploss`/`adjust_trade_position`/`confirm_trade_exit` | `ApexORB.py` (Freqtrade) | Kritisch | Box-Daten wurden mid-trade durch neue Session überschrieben → TP1/TP2/BE-Level drifteten |
+| 4 | `send_telegram_message` im Error-Handler ohne Import | `daily_closeout.py` | Mittel | Error-Handler warf selbst Exception |
+| 5 | `session_key` fehlte im Session-Dict | `nightly_report.py` | Niedrig | Session-Icons immer `📊` statt 🌏/🌍/🌎 |
+| 6 | `pnl_usd > 0` ohne None-Check | `nightly_report.py` | Mittel | TypeError wenn Tages-Trade noch offen ist |
+
+**Implementierungen:**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | State-Struktur `active_trades: {coin: {...}}` statt Flat | `position_monitor.py` | Unabhängiges BE-Tracking pro Asset, n Positionen parallel |
+| 2 | `for pos in positions:` Loop statt `positions[0]` | `position_monitor.py` | Alle offenen Positionen werden überwacht |
+| 3 | State-Migration: Altes Flat-Format → `active_trades` Dict | `position_monitor.py` | Erster Run nach Update konvertiert automatisch |
+| 4 | `_get_entry_candle(df, trade)` — Entry-Kerze per `trade.open_date_utc` | `ApexORB.py` | Verhindert Box-Datendrift mid-trade, macht Freqtrade-Daten valide |
+| 5 | H-011 Shadow-Logging in `_log_shadow_entry` | `ApexORB.py` | ATR-Trail-Kontext (atr_14, atr_pct, 1.5x/2.0x callback) per Entry gespeichert |
+| 6 | Telegram-Redesign: alle 5 Nachrichten-Typen neu | `pre_market.py`, `autonomous_trade.py`, `position_monitor.py`, `nightly_report.py` | Lesbar, konsistent, kein Overhead |
+
+**Hypothesen:**
+- **H-011** neu eingetragen: ATR-basierter Trailing ab 1R. Shadow-Logging aktiv in Freqtrade. Validation nach 30 Trades. Testfahrzeug: Freqtrade. APEX unverändert bis Validation.
+
+**Monitor-State nach Session:**
+```json
+{ "active_trades": { "AVAX": {"be_applied": false}, "ETH": {"be_applied": false} } }
+```
+
+**Offene Positionen:**
+- AVAX SHORT @ $9.576, TP1 bereits hit (4.9 verbleibend), TP2 @ $9.172, SL @ $9.711
+- ETH LONG @ $2,373.99, TP1 @ $2,394.35, TP2 @ $2,435.08, SL @ $2,353.63
+
+---
+
 ### Session 2026-04-12 (Nacht) — Freqtrade als APEX-1:1-Replika + Hypothesen-Shadow-Logging
 
 **Thema:** Freqtrade zum parallelen Sandbox-System machen, das unter identischen technischen Bedingungen wie APEX tradet. Nach 30 Trades pro Bot → belastbarer A/B-Vergleich. Zusätzlich Shadow-Logging für offene Hypothesen (EMA, Volume, Tight-Late-Entry) damit nach 30 Trades datengetrieben entschieden werden kann.

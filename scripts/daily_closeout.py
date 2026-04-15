@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-APEX - Daily Closeout Report
-==============================
-Erstellt Tages-Report mit Balance, Trades, P&L.
-Sendet direkt an Telegram.
+APEX - Daily Closeout (Silent Snapshot Persister)
+==================================================
+Telegram-Report läuft in nightly_report.py (01:30 Uhr).
+Dieses Skript läuft Mo–Fr 23:00 und persistiert nur den
+Drawdown-Snapshot in high_water_mark.json (Safety-Net).
 """
 
 import os
@@ -13,17 +14,10 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts.bitget_client import BitgetClient
-from telegram_sender import send_telegram_message
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(PROJECT_DIR, "data")
-TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
-CAPITAL_FILE = os.path.join(DATA_DIR, "capital_tracking.json")
-PNL_TRACKER_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
 HWM_FILE = os.path.join(DATA_DIR, "high_water_mark.json")
-PENDING_NOTES_FILE = os.path.join(DATA_DIR, "pending_notes.jsonl")
-DEEP_REVIEW_FLAG_FILE = os.path.join(DATA_DIR, "deep_review_pending.flag")
-HYPOTHESIS_LOG = "/root/.claude/projects/-root-apex-trading-bot/memory/hypothesis_log.md"
 
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
@@ -143,7 +137,11 @@ if __name__ == "__main__":
         print(f"\U0001f4a5 ERROR: {e}")
         import traceback
         traceback.print_exc()
-        send_telegram_message(f"\U0001f4a5 APEX daily_closeout.py ERROR: {e}")
+        try:
+            from telegram_sender import send_telegram_message
+            send_telegram_message(f"\U0001f4a5 APEX daily_closeout.py ERROR: {e}")
+        except Exception:
+            pass
         sys.exit(1)
 
     print("NO_REPLY")

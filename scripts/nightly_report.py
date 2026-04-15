@@ -16,9 +16,13 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from telegram_sender import send_telegram_message
 
-PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR    = os.path.join(PROJECT_DIR, "data")
-LOGS_DIR    = os.path.join(PROJECT_DIR, "logs")
+PROJECT_DIR    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR       = os.path.join(PROJECT_DIR, "data")
+LOGS_DIR       = os.path.join(PROJECT_DIR, "logs")
+HWM_FILE       = os.path.join(DATA_DIR, "high_water_mark.json")
+PENDING_NOTES  = os.path.join(DATA_DIR, "pending_notes.jsonl")
+DEEP_FLAG      = os.path.join(DATA_DIR, "deep_review_pending.flag")
+HYPOTHESIS_LOG = "/root/.claude/projects/-root-apex-trading-bot/memory/hypothesis_log.md"
 
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
 try:
@@ -216,13 +220,68 @@ def detect_anomalies(sessions, trades_data, boxes):
     return hints
 
 
+# ─── Health-Check ─────────────────────────────────────────────────────────────
+
+def _health_alerts(balance: float) -> list:
+    """Gibt eine Liste von Alert-Strings zurück. Leer = alles nominal."""
+    alerts = []
+
+    # 1. Unverarbeitete Pending Notes
+    if os.path.exists(PENDING_NOTES):
+        try:
+            with open(PENDING_NOTES) as f:
+                n = sum(1 for line in f if line.strip())
+            if n > 0:
+                alerts.append(f"📝 {n} Pending Notes nicht verarbeitet → Claude-Session starten")
+        except OSError:
+            pass
+
+    # 2. Stale Deep-Review-Flag (> 48h)
+    if os.path.exists(DEEP_FLAG):
+        try:
+            age_h = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(DEEP_FLAG))).total_seconds() / 3600
+            if age_h > 48:
+                alerts.append(f"🧪 Deep Review Flag seit {age_h:.0f}h offen → Claude-Session starten")
+        except OSError:
+            pass
+
+    # 3. Hypothesen-Deadlines < 14 Tage
+    if os.path.exists(HYPOTHESIS_LOG):
+        try:
+            with open(HYPOTHESIS_LOG) as f:
+                content = f.read()
+            today = datetime.now().date()
+            for d in re.findall(r"- \*\*Deadline:\*\* .*?(\d{4}-\d{2}-\d{2})", content):
+                days_left = (datetime.strptime(d, "%Y-%m-%d").date() - today).days
+                if days_left <= 0:
+                    alerts.append(f"⚠️ Hypothesen-Deadline ÜBERSCHRITTEN ({d})")
+                elif days_left <= 14:
+                    alerts.append(f"⏰ Hypothesen-Deadline in {days_left}d ({d})")
+        except (OSError, re.error):
+            pass
+
+    # 4. Drawdown > 30%
+    if balance > 0 and os.path.exists(HWM_FILE):
+        try:
+            hwm_data = load_json(HWM_FILE, {})
+            hwm = hwm_data.get("hwm", 0)
+            if hwm > 0:
+                dd = ((hwm - balance) / hwm) * 100
+                if dd > 30:
+                    alerts.append(f"🔴 Drawdown {dd:.1f}% (${balance:.2f} vs HWM ${hwm:.2f})")
+        except Exception:
+            pass
+
+    return alerts
+
+
 # ─── Report formatieren ────────────────────────────────────────────────────────
 
 def format_report():
     # Logs einlesen
-    tokyo = analyse_session_log("tokyo.log", "Tokyo 🌏")
-    eu    = analyse_session_log("eu.log",    "EU 🇪🇺")
-    us    = analyse_session_log("us.log",    "US 🇺🇸")
+    tokyo = analyse_session_log("tokyo.log", "Tokyo");  tokyo["session_key"] = "tokyo"
+    eu    = analyse_session_log("eu.log",    "EU");     eu["session_key"]    = "eu"
+    us    = analyse_session_log("us.log",    "US");     us["session_key"]    = "us"
 
     # Trade-Daten
     td = analyse_trades(days=7)
@@ -230,25 +289,50 @@ def format_report():
     # Aktuelle Boxes
     boxes = load_json(os.path.join(DATA_DIR, "opening_range_boxes.json"), {})
 
-    # Balance aus Daily-Log
+    # Balance direkt von Bitget holen (authoritative)
+    balance_val = 0.0
     balance_txt = "unbekannt"
     hwm_txt = ""
-    daily_lines = tail_log("daily.log", 50)
-    for line in reversed(daily_lines):
-        m = re.search(r"Balance:.*?\$([\d.,]+)", line)
-        if m:
-            balance_txt = f"${m.group(1)} USDT"
-            break
-    hwm = load_json(os.path.join(DATA_DIR, "high_water_mark.json"), {})
+    try:
+        sys.path.insert(0, os.path.join(PROJECT_DIR, "scripts"))
+        from bitget_client import BitgetClient
+        sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
+        try:
+            from bot_config import DRY_RUN
+        except ImportError:
+            DRY_RUN = True
+        client_r = BitgetClient(dry_run=DRY_RUN)
+        balance_val = client_r.get_balance()
+        balance_txt = f"${balance_val:,.2f} USDT"
+    except Exception as e:
+        print(f"⚠️  Balance-Fetch fehlgeschlagen: {e}")
+        # Fallback: aus Daily-Log
+        daily_lines = tail_log("daily.log", 50)
+        for line in reversed(daily_lines):
+            m = re.search(r"Balance:.*?\$([\d.,]+)", line)
+            if m:
+                balance_txt = f"${m.group(1)} USDT"
+                balance_val = float(m.group(1).replace(",", ""))
+                break
+    hwm = load_json(HWM_FILE, {})
     if hwm.get("hwm"):
         hwm_txt = f" | HWM: ${hwm['hwm']:.2f}"
 
-    # PnL
+    # PnL direkt aus capital_tracking berechnen
     pnl_line = ""
-    for line in reversed(daily_lines):
-        if "Gesamt P&L" in line or "P&L" in line:
-            pnl_line = re.sub(r"\[.*?\]\s*", "", line).strip()
-            break
+    try:
+        sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
+        capital_file = os.path.join(DATA_DIR, "capital_tracking.json")
+        cap = load_json(capital_file, {})
+        start = cap.get("adjusted_start_capital") or cap.get("start_capital") or CAPITAL
+        if balance_val > 0 and start > 0:
+            pnl = balance_val - start
+            pnl_pct = (pnl / start) * 100
+            sign = "+" if pnl >= 0 else ""
+            icon = "📈" if pnl >= 0 else "📉"
+            pnl_line = f"{icon} Gesamt P&L: {sign}${pnl:.2f} ({sign}{pnl_pct:.2f}%) | Start: ${start:.2f}"
+    except Exception:
+        pass
 
     # Anomalien
     anomalies = detect_anomalies([tokyo, eu, us], td, boxes)
@@ -257,74 +341,71 @@ def format_report():
     weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     day_str = f"{weekdays[TODAY.weekday()]} {TODAY.strftime('%d.%m.%Y')}"
 
-    lines = [f"🌙 APEX Nachtbericht — {day_str}\n"]
+    lines = [f"🌙 Tagesabschluss · {day_str}", ""]
 
-    # Sessions
-    lines.append("📊 Heutige Sessions")
+    # ── Sessions ──
+    session_icons = {"tokyo": "🌏", "eu": "🌍", "us": "🌎"}
     for s in [tokyo, eu, us]:
+        icon = session_icons.get(s.get("session_key", ""), "📊")
         if s["traded"]:
-            trade_info = s["trade_txt"] or "Trade ausgeführt"
-            lines.append(f"  ✅ {s['name']}: {trade_info}")
+            lines.append(f"{icon} {s['name']}  ✅  Trade ausgeführt")
         elif s["breakouts"]:
-            lines.append(f"  ⏰ {s['name']}: Breakout ({', '.join(s['breakouts'])}) – nicht getradet")
+            lines.append(f"{icon} {s['name']}  ⏩  Breakout gesehen, kein Entry")
         elif s["no_signal"]:
-            lines.append(f"  ➖ {s['name']}: Kein Signal")
+            lines.append(f"{icon} {s['name']}  ➖  Kein Signal")
         else:
-            lines.append(f"  ❔ {s['name']}: Keine Daten")
+            lines.append(f"{icon} {s['name']}  ❔  Keine Daten")
 
-    # Heutige Trades
+    # ── Heutige Trades (Detail) ──
     if td["today"]:
-        lines.append("\n💼 Trades heute")
+        lines.append("")
         for t in td["today"]:
-            session = t.get("session", "?").upper()
             asset   = t.get("asset", "?")
             side    = "🟢 LONG" if t.get("direction") == "long" else "🔴 SHORT"
             entry   = t.get("entry_price", 0)
-            risk    = t.get("risk_usd", 0)
-            lines.append(f"  {side} {asset} @ ${entry:,.4f} ({session}, Risk: ${risk:.2f})")
+            exit_p  = t.get("exit_price")
+            pnl_r   = t.get("exit_pnl_r")
+            pnl_usd = t.get("exit_pnl_usd")
+            if exit_p and pnl_r is not None and pnl_usd is not None:
+                result_icon = "✅" if pnl_usd > 0 else ("❌" if pnl_usd < 0 else "⚖️")
+                sign = "+" if pnl_usd >= 0 else ""
+                lines.append(f"{result_icon} {side} {asset}  {sign}${pnl_usd:.2f} ({sign}{pnl_r}R)")
+            else:
+                lines.append(f"🔄 {side} {asset} @ ${entry:,.4f}  (läuft noch)")
 
-    # Balance
-    lines.append(f"\n💰 Kontostand")
-    lines.append(f"  Balance: {balance_txt}{hwm_txt}")
+    # ── Balance & P&L ──
+    lines.append("")
+    lines.append(f"💰 Balance  {balance_txt}{hwm_txt}")
     if pnl_line:
-        lines.append(f"  {pnl_line}")
+        lines.append(f"   {pnl_line}")
 
-    # 7-Tage-Performance
+    # ── 7-Tage-Performance ──
     if td["recent"]:
-        lines.append(f"\n📈 Letzte 7 Tage ({len(td['recent'])} Trades)")
         tracker = td["pnl_tracker"]
         if tracker:
-            wins   = tracker.get("winning_trades", 0)
-            losses = tracker.get("losing_trades", 0)
-            total  = tracker.get("total_trades", 0)
-            wr     = f"{wins/total*100:.0f}%" if total > 0 else "?"
+            wins     = tracker.get("winning_trades", 0)
+            losses   = tracker.get("losing_trades", 0)
+            total    = tracker.get("total_trades", 0)
+            wr       = f"{wins/total*100:.0f}%" if total > 0 else "?"
             realized = tracker.get("realized_pnl", 0)
-            sign = "+" if realized >= 0 else ""
-            lines.append(f"  {wins}W / {losses}L | Win-Rate: {wr} | Realized: {sign}${realized:.2f}")
+            sign     = "+" if realized >= 0 else ""
+            lines.append(f"📊 7 Tage  {wins}W / {losses}L  ·  {wr} WR  ·  {sign}${realized:.2f}")
 
-        # Beste Session
-        if td["by_session"]:
-            best_session = max(td["by_session"].items(), key=lambda x: len(x[1]))
-            lines.append(f"  Aktivste Session: {best_session[0].upper()} ({len(best_session[1])} Trades)")
+    # ── Health-Check ──
+    alerts = _health_alerts(balance_val)
+    if alerts:
+        lines.append("")
+        for a in alerts[:4]:
+            lines.append(f"⚠️ {a}")
 
-    # Box-Qualität
-    if boxes:
-        lines.append(f"\n📦 Aktuelle Boxes")
-        for asset, box in boxes.items():
-            rng   = box.get("high", 0) - box.get("low", 0)
-            thr   = BREAKOUT_THRESHOLD.get(asset, 0)
-            ratio = f"{thr/rng*100:.0f}% der Range" if rng > 0 else "?"
-            lines.append(f"  {asset}: Range ${rng:.4f} (Threshold {ratio})")
-
-    # Auffälligkeiten & Optimierungshinweise
+    # ── Auffälligkeiten ──
     if anomalies:
-        lines.append(f"\n⚠️ Auffälligkeiten")
-        for a in anomalies[:4]:  # max 4 damit Telegram nicht zu lang wird
-            lines.append(f"  {a}")
+        lines.append("")
+        for a in anomalies[:3]:
+            lines.append(f"💡 {a}")
 
-    # Footer
-    lines.append(f"\nNächste Session: Tokyo 02:00 Uhr")
-    lines.append(f"Tipp: /qualitycheck für tiefe Analyse")
+    lines.append("")
+    lines.append("Nächste Session: Tokyo 02:00 Uhr")
 
     return "\n".join(lines)
 

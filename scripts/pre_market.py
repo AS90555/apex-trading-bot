@@ -41,59 +41,63 @@ def run_pre_market(session):
     emoji = SESSION_EMOJIS.get(session, "\U0001f4ca")
     name = SESSION_NAMES.get(session, session.upper())
 
-    lines = [f"{emoji} APEX Pre-Market: {name}\n"]
+    dry_tag = " · DRY RUN" if DRY_RUN else ""
 
-    # API Connection Check
     try:
         client = BitgetClient(dry_run=DRY_RUN)
         if not client.is_ready:
-            lines.append("\u274c API: NICHT konfiguriert (config/.env.bitget fehlt)!")
-            send_telegram_message("\n".join(lines))
+            send_telegram_message(f"⚠️ APEX · {name}{dry_tag}\nAPI nicht konfiguriert — .env.bitget fehlt!")
             return
-        mode = " [DRY RUN]" if DRY_RUN else ""
-        lines.append(f"\u2705 Bitget API verbunden{mode}")
     except Exception as e:
-        lines.append(f"\u274c API-Verbindung fehlgeschlagen: {e}")
-        send_telegram_message("\n".join(lines))
+        send_telegram_message(f"⚠️ APEX · {name}{dry_tag}\nAPI-Verbindung fehlgeschlagen: {e}")
         return
 
     # Balance
+    balance_str = "?"
     try:
         balance = client.get_balance()
-        lines.append(f"\U0001f4b0 Balance: ${balance:,.2f} USDT")
-    except Exception as e:
-        lines.append(f"\u26a0\ufe0f Balance-Check fehlgeschlagen: {e}")
+        balance_str = f"${balance:,.2f} USDT"
+    except Exception:
+        pass
 
-    # Positions
+    # Offene Positionen
+    pos_lines = []
     try:
         positions = client.get_positions()
-        if positions:
-            lines.append(f"\U0001f4ca Offene Positionen: {len(positions)}")
-            for pos in positions:
-                direction = "LONG" if pos.size > 0 else "SHORT"
-                pnl_emoji = "\U0001f7e2" if pos.unrealized_pnl >= 0 else "\U0001f534"
-                lines.append(
-                    f"  {pos.coin} {direction} | Entry: ${pos.entry_price:,.2f} | "
-                    f"{pnl_emoji} P&L: ${pos.unrealized_pnl:+,.2f}"
-                )
-        else:
-            lines.append("\U0001f4ca Keine offenen Positionen")
-    except Exception as e:
-        lines.append(f"\u26a0\ufe0f Positions-Check fehlgeschlagen: {e}")
+        for pos in positions:
+            direction = "LONG" if pos.size > 0 else "SHORT"
+            sign = "+" if pos.unrealized_pnl >= 0 else ""
+            pnl_icon = "📈" if pos.unrealized_pnl >= 0 else "📉"
+            pos_lines.append(
+                f"{pnl_icon} {pos.coin} {direction}  {sign}${pos.unrealized_pnl:.2f}"
+            )
+    except Exception:
+        pass
 
-    # Price Check
+    # Marktpreise
+    price_parts = []
     try:
-        prices = []
         for asset in ASSETS:
             p = client.get_price(asset)
-            prices.append(f"{asset}: ${p:,.4f}")
-        lines.append("\n" + " | ".join(prices))
-    except Exception as e:
-        lines.append(f"\u26a0\ufe0f Preis-Check fehlgeschlagen: {e}")
+            price_parts.append(f"{asset} ${p:,.2f}")
+    except Exception:
+        pass
 
-    lines.append(f"\n\u2705 System bereit fuer {name}")
+    # Nachricht zusammenbauen
+    header = f"{emoji} {name}{dry_tag}"
+    body_lines = [header, ""]
+    body_lines.append(f"💰 Balance  {balance_str}")
+    if pos_lines:
+        body_lines.append("")
+        for pl in pos_lines:
+            body_lines.append(pl)
+    else:
+        body_lines.append("⏸️ Keine offenen Positionen")
+    if price_parts:
+        body_lines.append("")
+        body_lines.append("  ".join(price_parts))
 
-    msg = "\n".join(lines)
+    msg = "\n".join(body_lines)
     print(msg)
     send_telegram_message(msg)
 

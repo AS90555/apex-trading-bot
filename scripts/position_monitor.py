@@ -216,9 +216,10 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
 
     print(f"   ✅ BE-SL gesetzt @ ${new_sl:,.4f}")
     send_telegram_notification(
-        f"🛡️ APEX | BREAK-EVEN | {pos.coin} {direction_str}\n\n"
-        f"1R erreicht – SL auf ${new_sl:,.4f} nachgezogen\n"
-        f"(Entry: ${entry_price:,.4f} | Buffer: ${fee_buffer:,.4f})"
+        f"🛡️ {pos.coin} {direction_str} · Break-Even\n"
+        f"\n"
+        f"1R gesichert — SL auf ${new_sl:,.4f} nachgezogen.\n"
+        f"Trade läuft jetzt risikolos weiter."
     )
     return True
 
@@ -331,31 +332,57 @@ def update_pnl_tracker(pnl):
 
 
 def main():
-    """Main monitoring logic"""
+    """Main monitoring logic — unterstützt mehrere parallele Positionen."""
     client = BitgetClient(dry_run=DRY_RUN)
 
     positions = client.get_positions()
     current_count = len(positions)
     state = load_state()
-    last_count = state.get("last_position_count", 0)
 
-    if current_count == 0 and last_count == 0:
+    # --- State-Migration: altes Flat-Format → active_trades-Dict ---
+    # Altes Format: tracked_coin / position_opened_at / be_applied auf top-level
+    # Neues Format: active_trades: { "AVAX": { tracked_coin, position_opened_at, be_applied }, ... }
+    active_trades = state.get("active_trades")
+    if active_trades is None:
+        active_trades = {}
+        if state.get("tracked_coin"):
+            coin = state["tracked_coin"]
+            active_trades[coin] = {
+                "tracked_coin": coin,
+                "position_opened_at": state.get("position_opened_at", 0),
+                "be_applied": state.get("be_applied", False),
+            }
+            print(f"   🔄 State-Migration: Flat-Format → active_trades['{coin}']")
+
+    orphan_notified = list(state.get("orphan_notified", []))
+    last_position_count = state.get("last_position_count", 0)
+    current_coins = {pos.coin for pos in positions}
+
+    if current_count == 0 and last_position_count == 0 and not active_trades:
         print("\n⏸️  Keine Positionen - Monitor idle")
-        return current_count
+        save_state({
+            "last_position_count": 0,
+            "last_check": datetime.now().isoformat(),
+            "active_trades": {},
+            "orphan_notified": orphan_notified,
+        })
+        return 0
 
-    new_state = {"last_position_count": current_count, "last_check": datetime.now().isoformat()}
+    new_active_trades = {}
 
-    if last_count > 0 and current_count == 0:
-        # Position geschlossen — alle Fills seit Eröffnung summieren
-        tracked_coin = state.get("tracked_coin")
-        opened_at_ms = state.get("position_opened_at", 0)
+    # --- Exit-Detection: Coins die vorher getrackt wurden, jetzt aber weg sind ---
+    for coin, trade_state in active_trades.items():
+        if coin in current_coins:
+            continue  # noch offen → weiter unten verarbeiten
+
+        opened_at_ms = trade_state.get("position_opened_at", 0)
+        be_was_applied = trade_state.get("be_applied", False)
 
         print("\n" + "=" * 60)
-        print("🎯 POSITION GESCHLOSSEN!")
+        print(f"🎯 POSITION GESCHLOSSEN: {coin}")
         print("=" * 60)
 
-        total_pnl, exit_price, total_size = get_total_trade_pnl(client, tracked_coin, opened_at_ms)
-        coin = tracked_coin or "?"
+        total_pnl, exit_price, total_size = get_total_trade_pnl(client, coin, opened_at_ms)
 
         if exit_price:
             print(f"\n💰 FINAL RESULT:")
@@ -367,7 +394,6 @@ def main():
             balance = client.get_balance()
             print(f"\nAktuelle Balance: ${balance:,.2f} USDT")
 
-            # Context aus letztem Trade für R-Multiple + Direction
             last_trade = load_last_trade(coin) or {}
             direction = (last_trade.get("direction") or "?").upper()
             entry_price = last_trade.get("entry_price", 0)
@@ -385,88 +411,109 @@ def main():
             dir_icon = "🟢" if direction == "LONG" else ("🔴" if direction == "SHORT" else "⚪")
 
             message = (
-                f"🎯 APEX | EXIT | {coin} {direction}\n\n"
-                f"{emoji} {tag}: {sign}${total_pnl:.2f} ({sign}{pnl_r}R)\n\n"
-                f"{dir_icon} Entry: ${entry_price:,.4f}\n"
-                f"      Exit:  ${exit_price:,.4f}\n"
-                f"      Size:  {total_size:.4f}\n\n"
-                f"💰 Balance: ${balance:,.2f} USDT"
+                f"{emoji} {coin} {direction} · {tag}\n"
+                f"\n"
+                f"{sign}${total_pnl:.2f}  ({sign}{pnl_r}R)\n"
+                f"\n"
+                f"{dir_icon} Entry   ${entry_price:,.4f}\n"
+                f"   Exit    ${exit_price:,.4f}\n"
+                f"   Size    {total_size:.4f}\n"
+                f"\n"
+                f"💰 Balance  ${balance:,.2f} USDT"
             )
-            print(f"\n{emoji} {result_text}")
+            print(f"\n{emoji} {tag}: {sign}${total_pnl:.2f} ({sign}{pnl_r}R)")
             send_telegram_notification(message)
             update_pnl_tracker(total_pnl)
 
-            # Funding-Kosten über die Haltedauer aggregieren (None bei API-Fehler)
             funding_paid = client.get_funding_paid(coin, opened_at_ms) if opened_at_ms else None
-
-            # Exit-Daten zurück in trades.json schreiben
-            be_was_applied = state.get("be_applied", False)
             update_trade_with_exit(coin, total_pnl, exit_price, be_was_applied, funding_paid)
         else:
-            print("⚠️  Keine Fill-Daten verfügbar")
-            send_telegram_notification("🎯 APEX: Position geschlossen, aber keine Trade-Details gefunden.")
+            print(f"⚠️  Keine Fill-Daten für {coin} verfügbar")
+            send_telegram_notification(f"🎯 APEX: Position {coin} geschlossen, aber keine Trade-Details gefunden.")
 
-    elif current_count > 0:
-        pos = positions[0]
-        print(f"\n✅ Position läuft weiter:")
-        print(f"   {pos.coin} {'LONG' if pos.size > 0 else 'SHORT'}")
-        print(f"   P&L: ${pos.unrealized_pnl:.2f}")
+    # --- Aktive Positionen: Tracking + Break-Even Check (alle Coins) ---
+    for pos in positions:
+        coin = pos.coin
+        is_long = pos.size > 0
+        print(f"\n✅ Position läuft weiter: {coin} {'LONG' if is_long else 'SHORT'} | P&L: ${pos.unrealized_pnl:.2f}")
 
-        # Position-Tracking: opened_at und coin merken für späteren P&L
-        if last_count == 0 or "position_opened_at" not in state:
-            last_trade = load_last_trade(pos.coin)
+        per_coin = active_trades.get(coin, {})
+
+        if not per_coin or "position_opened_at" not in per_coin:
+            # Neue Position: Timestamp aus trades.json holen
+            last_trade = load_last_trade(coin)
             ts_str = last_trade.get("timestamp") if last_trade else None
             if ts_str:
                 # 30s Puffer: Trade-Log-Timestamp kann nach tatsächlichem Fill liegen
                 opened_at_ms = int(datetime.fromisoformat(ts_str).timestamp() * 1000) - 30_000
             else:
                 opened_at_ms = int(datetime.now().timestamp() * 1000)
-            new_state["position_opened_at"] = opened_at_ms
-            new_state["tracked_coin"] = pos.coin
-            new_state["be_applied"] = False  # Reset BE-Flag bei neuer Position
+            new_per_coin = {
+                "tracked_coin": coin,
+                "position_opened_at": opened_at_ms,
+                "be_applied": False,
+            }
         else:
-            new_state["position_opened_at"] = state.get("position_opened_at")
-            new_state["tracked_coin"] = state.get("tracked_coin", pos.coin)
-            new_state["be_applied"] = state.get("be_applied", False)
+            new_per_coin = {
+                "tracked_coin": coin,
+                "position_opened_at": per_coin.get("position_opened_at"),
+                "be_applied": per_coin.get("be_applied", False),
+            }
 
         # Break-Even Check: SL auf Entry verschieben wenn 1R Gewinn erreicht
-        be_applied = check_and_apply_break_even(client, pos, new_state)
+        be_applied = check_and_apply_break_even(client, pos, new_per_coin)
         if be_applied:
-            new_state["be_applied"] = True
-    else:
-        print("\n⏸️  Keine offenen Positionen")
-        # Orphaned-Trade-Detection: trades.json auf "offen" Einträge prüfen
-        # die keine entsprechende Position auf Bitget mehr haben
+            new_per_coin["be_applied"] = True
+
+        new_active_trades[coin] = new_per_coin
+
+    # --- Orphan-Detection: nur wenn aktuell keine Positionen offen ---
+    if current_count == 0:
         if os.path.exists(TRADES_FILE):
             try:
                 with open(TRADES_FILE, 'r') as f:
                     all_trades = json.load(f)
                 now = datetime.now()
+
                 def _trade_age_minutes(t):
                     ts = t.get("timestamp", "")[:19]
                     try:
                         return (now - datetime.fromisoformat(ts)).total_seconds() / 60
                     except Exception:
                         return 999
+
                 orphaned = [
                     t for t in all_trades
                     if not t.get("exit_timestamp")
                     and t.get("exit_reason") != "ORPHANED"
-                    and _trade_age_minutes(t) > 10  # 10 Min Grace-Period nach Eintrag
+                    and _trade_age_minutes(t) > 10  # 10 Min Grace-Period
                 ]
                 if orphaned:
+                    already_notified = set(orphan_notified)
                     for ot in orphaned:
                         asset = ot.get("asset", "?")
-                        ts = ot.get("timestamp", "?")[:10]
-                        print(f"   ⚠️  ORPHANED TRADE: {asset} {ot.get('direction','').upper()} vom {ts} – kein Bitget-Match")
-                        send_telegram_notification(
-                            f"⚠️ APEX: Orphaned Trade gefunden – {asset} {ot.get('direction','').upper()} vom {ts} "
-                            f"hat keine offene Position auf Bitget. Bitte manuell prüfen."
-                        )
+                        ts = ot.get("timestamp", "?")[:16]
+                        key = f"{asset}_{ts}"
+                        print(f"   ⚠️  ORPHANED TRADE: {asset} {ot.get('direction','').upper()} vom {ts[:10]} – kein Bitget-Match")
+                        if key not in already_notified:
+                            send_telegram_notification(
+                                f"⚠️ APEX | ORPHANED TRADE | {asset}\n\n"
+                                f"{ot.get('direction','').upper()} vom {ts[:10]} hat keine offene Position auf Bitget.\n"
+                                f"Bitte manuell prüfen."
+                            )
+                            orphan_notified.append(key)
+                            already_notified.add(key)
+                else:
+                    print("\n⏸️  Keine offenen Positionen")
             except Exception as e:
                 print(f"   ⚠️  Orphaned-Check fehlgeschlagen: {e}")
 
-    save_state(new_state)
+    save_state({
+        "last_position_count": current_count,
+        "last_check": datetime.now().isoformat(),
+        "active_trades": new_active_trades,
+        "orphan_notified": orphan_notified,
+    })
     return current_count
 
 
