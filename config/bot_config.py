@@ -70,6 +70,15 @@ MAX_BREAKOUT_DISTANCE_RATIO = 2.0  # Max Breakout-Distanz als Vielfaches der Box
                                     # Verhindert Chasing: Preis > 2x Range über Box-Grenze → kein Trade
                                     # Beispiel ETH Box $9.23: max $18.46 über Box-High erlaubt
 
+# H-006: EMA-200 Alignment Filter (aktiviert 2026-04-16 nach 12-Trade-Analyse)
+# Datenbasis: 12 Trades mit trend_context. MIT-Trend: Avg +0.09R, WR 50% (n=4).
+# GEGEN-Trend: Avg −0.80R, WR 12% (n=8). Filter hätte 7 von 8 Gegen-Trend-Losses
+# vermieden bei Kosten von 1 BE_WIN → Netto +6.44R auf 12 Trades.
+# Fail-safe: Fehlt ema_200 oder ist EMA-Daten-Berechnung fehlgeschlagen → Trade läuft
+# wie bisher durch (kein Blockieren bei unklarer Datenlage).
+H006_EMA_FILTER_ENABLED = True
+H006_REQUIRE_H4_ALIGN   = False  # True = zusätzlich 4H-EMA-50-Alignment erforderlich
+
 # WEEKEND MOMENTUM
 
 WEEKEND_ASSET = "AVAX"

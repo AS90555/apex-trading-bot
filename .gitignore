@@ -20,3 +20,5 @@ __pycache__/
 config/.env*
 venv/
 __pycache__/
+*.log
+logs/

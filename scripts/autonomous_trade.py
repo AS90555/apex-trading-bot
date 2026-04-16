@@ -25,7 +25,8 @@ try:
     from bot_config import (
         DRY_RUN, CAPITAL, MAX_RISK_PCT, ASSET_PRIORITY,
         BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS, DRAWDOWN_KILL_PCT,
-        MIN_BOX_RANGE, MAX_BOX_AGE_MIN, MAX_BREAKOUT_DISTANCE_RATIO
+        MIN_BOX_RANGE, MAX_BOX_AGE_MIN, MAX_BREAKOUT_DISTANCE_RATIO,
+        H006_EMA_FILTER_ENABLED, H006_REQUIRE_H4_ALIGN
     )
 except ImportError:
     DRY_RUN = True
@@ -39,6 +40,8 @@ except ImportError:
     MIN_BOX_RANGE = {"ETH": 1.0, "SOL": 0.10, "AVAX": 0.04, "XRP": 0.003}
     MAX_BOX_AGE_MIN = 120
     MAX_BREAKOUT_DISTANCE_RATIO = 2.0
+    H006_EMA_FILTER_ENABLED = False
+    H006_REQUIRE_H4_ALIGN = False
 
 MAX_RISK_USD = CAPITAL * MAX_RISK_PCT
 
@@ -713,6 +716,39 @@ def scan_for_breakouts(client):
                 print(f"   📐 Trend-Kontext: EMA200={trend_context.get('ema_200', 0):.4f} | ATR14={trend_context.get('atr_14', 0):.4f} | 15m={trend_context.get('trend_direction', '?')} {a15} | 4H={h4} {a4h} | Box/ATR={trend_context.get('atr_ratio', 0)}")
         except Exception as e:
             print(f"   ⚠️  {asset}: EMA/ATR-Berechnung fehlgeschlagen ({e})")
+
+        # H-006: EMA-200 Alignment Filter (kugelsicher)
+        # Skip NUR wenn: Filter aktiv UND EMA-Daten valide UND Richtung gegen Trend.
+        # Fail-safe: fehlende/invalide EMA-Daten → Trade läuft durch (wie vor dem Filter).
+        if H006_EMA_FILTER_ENABLED:
+            ema_200 = trend_context.get("ema_200") if trend_context else None
+            ema_aligned = trend_context.get("ema_aligned") if trend_context else None
+            # Nur blockieren wenn wir EINDEUTIG gegen den Trend handeln.
+            # ema_aligned == False heißt: Daten waren da, Richtung passt nicht.
+            if (ema_200 is not None and ema_200 > 0
+                    and ema_aligned is False):
+                print(f"   ⏭️  {asset}: {direction.upper()} gegen EMA-200 ({trend_context.get('trend_direction')}) – H-006 Skip")
+                log_skip("ema200_misaligned", asset, current_session, {
+                    "direction": direction,
+                    "trend_direction": trend_context.get("trend_direction"),
+                    "ema_200": ema_200,
+                    "entry_price": current_price,
+                })
+                continue
+            # Optional: zusätzlich 4H-Alignment fordern
+            if H006_REQUIRE_H4_ALIGN:
+                h4_aligned = trend_context.get("h4_aligned") if trend_context else None
+                h4_ema = trend_context.get("h4_ema_50") if trend_context else None
+                if (h4_ema is not None and h4_ema > 0
+                        and h4_aligned is False):
+                    print(f"   ⏭️  {asset}: {direction.upper()} gegen 4H-EMA-50 – H-006 Skip (4H)")
+                    log_skip("ema200_h4_misaligned", asset, current_session, {
+                        "direction": direction,
+                        "h4_trend_direction": trend_context.get("h4_trend_direction"),
+                        "h4_ema_50": h4_ema,
+                        "entry_price": current_price,
+                    })
+                    continue
 
         return {
             "asset": asset,
