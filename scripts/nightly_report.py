@@ -341,45 +341,39 @@ def format_report():
     weekdays = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
     day_str = f"{weekdays[TODAY.weekday()]} {TODAY.strftime('%d.%m.%Y')}"
 
-    lines = [f"🌙 Tagesabschluss · {day_str}", ""]
-
-    # ── Sessions ──
-    session_icons = {"tokyo": "🌏", "eu": "🌍", "us": "🌎"}
+    # ── Sessions zusammenfassen ──
+    session_parts = []
     for s in [tokyo, eu, us]:
-        icon = session_icons.get(s.get("session_key", ""), "📊")
+        name_short = s["name"].split()[0]  # "Tokyo", "EU", "US"
         if s["traded"]:
-            lines.append(f"{icon} {s['name']}  ✅  Trade ausgeführt")
+            session_parts.append(f"{name_short} getradet")
         elif s["breakouts"]:
-            lines.append(f"{icon} {s['name']}  ⏩  Breakout gesehen, kein Entry")
+            session_parts.append(f"{name_short} kein Entry")
         elif s["no_signal"]:
-            lines.append(f"{icon} {s['name']}  ➖  Kein Signal")
+            session_parts.append(f"{name_short} kein Signal")
         else:
-            lines.append(f"{icon} {s['name']}  ❔  Keine Daten")
+            session_parts.append(f"{name_short} keine Daten")
+    sessions_line = "  ·  ".join(session_parts)
 
-    # ── Heutige Trades (Detail) ──
+    # ── Heutige Trades ──
+    trade_lines = []
     if td["today"]:
-        lines.append("")
         for t in td["today"]:
             asset   = t.get("asset", "?")
-            side    = "🟢 LONG" if t.get("direction") == "long" else "🔴 SHORT"
+            side    = "Long" if t.get("direction") == "long" else "Short"
             entry   = t.get("entry_price", 0)
             exit_p  = t.get("exit_price")
             pnl_r   = t.get("exit_pnl_r")
             pnl_usd = t.get("exit_pnl_usd")
             if exit_p and pnl_r is not None and pnl_usd is not None:
-                result_icon = "✅" if pnl_usd > 0 else ("❌" if pnl_usd < 0 else "⚖️")
                 sign = "+" if pnl_usd >= 0 else ""
-                lines.append(f"{result_icon} {side} {asset}  {sign}${pnl_usd:.2f} ({sign}{pnl_r}R)")
+                result = "Win" if pnl_usd > 0 else ("Loss" if pnl_usd < 0 else "BE")
+                trade_lines.append(f"{asset} {side} — {result}  {sign}${pnl_usd:.2f} ({sign}{pnl_r}R)  Entry ${entry:,.4f} · Exit ${exit_p:,.4f}")
             else:
-                lines.append(f"🔄 {side} {asset} @ ${entry:,.4f}  (läuft noch)")
+                trade_lines.append(f"{asset} {side} @ ${entry:,.4f} — läuft noch")
 
-    # ── Balance & P&L ──
-    lines.append("")
-    lines.append(f"💰 Balance  {balance_txt}{hwm_txt}")
-    if pnl_line:
-        lines.append(f"   {pnl_line}")
-
-    # ── 7-Tage-Performance ──
+    # ── 7-Tage-Stats ──
+    stats_line = ""
     if td["recent"]:
         tracker = td["pnl_tracker"]
         if tracker:
@@ -389,20 +383,36 @@ def format_report():
             wr       = f"{wins/total*100:.0f}%" if total > 0 else "?"
             realized = tracker.get("realized_pnl", 0)
             sign     = "+" if realized >= 0 else ""
-            lines.append(f"📊 7 Tage  {wins}W / {losses}L  ·  {wr} WR  ·  {sign}${realized:.2f}")
+            stats_line = f"7 Tage: {wins}W / {losses}L  ·  {wr} WR  ·  {sign}${realized:.2f}"
 
-    # ── Health-Check ──
+    # ── Alerts & Anomalien ──
     alerts = _health_alerts(balance_val)
-    if alerts:
-        lines.append("")
-        for a in alerts[:4]:
-            lines.append(f"⚠️ {a}")
+    alert_lines = [a for a in alerts[:3]]
+    anomaly_lines = [a for a in (anomalies or [])[:2]]
 
-    # ── Auffälligkeiten ──
-    if anomalies:
+    # ── Nachricht bauen ──
+    lines = [f"Tagesabschluss {day_str}  —  {sessions_line}", ""]
+
+    if trade_lines:
+        for tl in trade_lines:
+            lines.append(tl)
         lines.append("")
-        for a in anomalies[:3]:
-            lines.append(f"💡 {a}")
+
+    lines.append(f"Book {balance_txt}{hwm_txt}")
+    if pnl_line:
+        lines.append(f"   {pnl_line}")
+    if stats_line:
+        lines.append(f"   {stats_line}")
+
+    if alert_lines:
+        lines.append("")
+        for a in alert_lines:
+            lines.append(f"Achtung — {a}")
+
+    if anomaly_lines:
+        lines.append("")
+        for a in anomaly_lines:
+            lines.append(f"Hinweis — {a}")
 
     lines.append("")
     lines.append("Nächste Session: Tokyo 02:00 Uhr")
@@ -424,7 +434,7 @@ if __name__ == "__main__":
         print("✅ Nacht-Report gesendet")
     except Exception as e:
         import traceback
-        err = f"💥 APEX nightly_report.py ERROR: {e}"
+        err = f"Bot-Fehler (nightly_report) — {e}"
         print(err)
         traceback.print_exc()
         try:

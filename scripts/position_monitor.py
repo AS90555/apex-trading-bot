@@ -208,18 +208,13 @@ def check_and_apply_break_even(client, pos, state: dict) -> bool:
     if not sl_result.success:
         print(f"   ❌ BE-SL setzen fehlgeschlagen: {sl_result.error}")
         send_telegram_notification(
-            f"⚠️ APEX: Break-Even SL FEHLER\n{pos.coin} {direction_str}\n"
-            f"Cancel OK, aber neuer SL @ ${new_sl:,.4f} konnte nicht gesetzt werden!\n"
-            f"Manuell handeln!"
+            f"Kleines Problem beim {pos.coin} {direction_str} — Break-Even SL konnte nicht gesetzt werden. Bitte manuell auf ${new_sl:,.4f} nachziehen."
         )
         return False
 
     print(f"   ✅ BE-SL gesetzt @ ${new_sl:,.4f}")
     send_telegram_notification(
-        f"🛡️ {pos.coin} {direction_str} · Break-Even\n"
-        f"\n"
-        f"1R gesichert — SL auf ${new_sl:,.4f} nachgezogen.\n"
-        f"Trade läuft jetzt risikolos weiter."
+        f"Break-Even erreicht beim {pos.coin} {direction_str}. SL auf ${new_sl:,.4f} nachgezogen — läuft jetzt risikofrei."
     )
     return True
 
@@ -400,26 +395,17 @@ def main():
             risk_usd = last_trade.get("risk_usd") or 1.0
             pnl_r = round(total_pnl / risk_usd, 2) if risk_usd else 0.0
 
-            if total_pnl > 0:
-                emoji, tag = "✅", "WIN"
-            elif total_pnl < 0:
-                emoji, tag = "❌", "LOSS"
-            else:
-                emoji, tag = "⚖️", "BE"
-
             sign = "+" if total_pnl >= 0 else ""
-            dir_icon = "🟢" if direction == "LONG" else ("🔴" if direction == "SHORT" else "⚪")
+            if total_pnl > 0:
+                result_line = f"Schöner Trade — {sign}${total_pnl:.2f} ({sign}{pnl_r}R). Book jetzt ${balance:,.2f}."
+            elif total_pnl < 0:
+                result_line = f"{coin} {direction} hat nicht funktioniert. {sign}${total_pnl:.2f} ({sign}{pnl_r}R). Book ${balance:,.2f}. Nächste Session."
+            else:
+                result_line = f"{coin} {direction} bei Break-Even raus. Book ${balance:,.2f}."
 
             message = (
-                f"{emoji} {coin} {direction} · {tag}\n"
-                f"\n"
-                f"{sign}${total_pnl:.2f}  ({sign}{pnl_r}R)\n"
-                f"\n"
-                f"{dir_icon} Entry   ${entry_price:,.4f}\n"
-                f"   Exit    ${exit_price:,.4f}\n"
-                f"   Size    {total_size:.4f}\n"
-                f"\n"
-                f"💰 Balance  ${balance:,.2f} USDT"
+                f"{result_line}\n"
+                f"Entry ${entry_price:,.4f} · Exit ${exit_price:,.4f}"
             )
             print(f"\n{emoji} {tag}: {sign}${total_pnl:.2f} ({sign}{pnl_r}R)")
             send_telegram_notification(message)
@@ -429,7 +415,7 @@ def main():
             update_trade_with_exit(coin, total_pnl, exit_price, be_was_applied, funding_paid)
         else:
             print(f"⚠️  Keine Fill-Daten für {coin} verfügbar")
-            send_telegram_notification(f"🎯 APEX: Position {coin} geschlossen, aber keine Trade-Details gefunden.")
+            send_telegram_notification(f"{coin} wurde geschlossen, aber die Trade-Details sind nicht auffindbar. Bitte kurz manuell prüfen.")
 
     # --- Aktive Positionen: Tracking + Break-Even Check (alle Coins) ---
     for pos in positions:
@@ -497,9 +483,7 @@ def main():
                         print(f"   ⚠️  ORPHANED TRADE: {asset} {ot.get('direction','').upper()} vom {ts[:10]} – kein Bitget-Match")
                         if key not in already_notified:
                             send_telegram_notification(
-                                f"⚠️ APEX | ORPHANED TRADE | {asset}\n\n"
-                                f"{ot.get('direction','').upper()} vom {ts[:10]} hat keine offene Position auf Bitget.\n"
-                                f"Bitte manuell prüfen."
+                                f"Kurz prüfen — {asset} {ot.get('direction','').upper()} vom {ts[:10]} ist im Log, aber keine offene Position auf Bitget gefunden."
                             )
                             orphan_notified.append(key)
                             already_notified.add(key)
@@ -529,7 +513,7 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         try:
-            send_telegram_notification(f"💥 APEX position_monitor.py ERROR: {e}")
+            send_telegram_notification(f"Bot-Fehler (position_monitor) — {e}")
         except Exception:
             pass
         print("NO_REPLY")

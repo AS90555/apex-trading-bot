@@ -46,10 +46,10 @@ def run_pre_market(session):
     try:
         client = BitgetClient(dry_run=DRY_RUN)
         if not client.is_ready:
-            send_telegram_message(f"⚠️ APEX · {name}{dry_tag}\nAPI nicht konfiguriert — .env.bitget fehlt!")
+            send_telegram_message(f"{name}{dry_tag} — API nicht konfiguriert, .env.bitget fehlt.")
             return
     except Exception as e:
-        send_telegram_message(f"⚠️ APEX · {name}{dry_tag}\nAPI-Verbindung fehlgeschlagen: {e}")
+        send_telegram_message(f"{name}{dry_tag} — API-Verbindung fehlgeschlagen: {e}")
         return
 
     # Balance
@@ -84,20 +84,14 @@ def run_pre_market(session):
         pass
 
     # Nachricht zusammenbauen
-    header = f"{emoji} {name}{dry_tag}"
-    body_lines = [header, ""]
-    body_lines.append(f"💰 Balance  {balance_str}")
-    if pos_lines:
-        body_lines.append("")
-        for pl in pos_lines:
-            body_lines.append(pl)
-    else:
-        body_lines.append("⏸️ Keine offenen Positionen")
-    if price_parts:
-        body_lines.append("")
-        body_lines.append("  ".join(price_parts))
+    pos_summary = ", ".join(pos_lines) if pos_lines else "keine offenen Positionen"
+    price_summary = "  ·  ".join(price_parts) if price_parts else ""
 
-    msg = "\n".join(body_lines)
+    msg = (
+        f"{emoji} {name} läuft{dry_tag}. Book bei {balance_str}. {pos_summary}."
+        + (f"\n{price_summary}" if price_summary else "")
+    )
+
     print(msg)
     send_telegram_message(msg)
 
@@ -120,7 +114,7 @@ if __name__ == "__main__":
         print(f"\U0001f4a5 ERROR: {e}")
         import traceback
         traceback.print_exc()
-        send_telegram_message(f"\U0001f4a5 APEX pre_market.py ERROR: {e}")
+        send_telegram_message(f"Bot-Fehler (pre_market) — {e}")
         sys.exit(1)
 
     print("NO_REPLY")

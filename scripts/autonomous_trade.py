@@ -251,7 +251,7 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         time.sleep(3)
         cancel_ok = client.cancel_tpsl_orders(asset)
     if not cancel_ok and not DRY_RUN:
-        alert = f"⚠️ APEX: TP/SL Cancel für {asset} fehlgeschlagen – Trade abgebrochen"
+        alert = f"Cancel für bestehende {asset} Orders hat nicht funktioniert — Trade abgebrochen."
         print(f"\n{alert}")
         send_telegram_message(alert)
         return {"success": False, "error": "Orphan-Order Cancel fehlgeschlagen"}
@@ -368,10 +368,8 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         )
         close_ok = close_result.success
         alert_msg = (
-            f"🚨 NOTFALL · {asset} {direction.upper()}{' · DRY RUN' if DRY_RUN else ''}\n"
-            f"\n"
-            f"Stop-Loss konnte nicht gesetzt werden.\n"
-            f"Position {'geschlossen ✅' if close_ok else 'OFFEN ❌ — bitte sofort manuell schließen!'}"
+            f"Problem beim {asset} {direction.upper()}{' [DRY]' if DRY_RUN else ''} — SL konnte nicht gesetzt werden. "
+            f"{'Position wurde geschlossen.' if close_ok else 'Position ist noch offen — bitte sofort manuell schließen.'}"
         )
         send_telegram_message(alert_msg)
         return {"success": False, "error": "SL fehlgeschlagen – Position notgeschlossen"}
@@ -395,10 +393,8 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         else:
             position_status = "KONNTE NICHT GESCHLOSSEN WERDEN ❌ – SL NOCH AKTIV – MANUELL HANDELN!"
         alert_msg = (
-            f"🚨 NOTFALL · {asset} {direction.upper()}{' · DRY RUN' if DRY_RUN else ''}\n"
-            f"\n"
-            f"Kein Profit-Mechanismus setzbar (TP1 zu klein, TP2 @ ${take_profit_2:,.4f} fehlgeschlagen).\n"
-            f"Position {position_status}"
+            f"Problem beim {asset} {direction.upper()}{' [DRY]' if DRY_RUN else ''} — kein Take-Profit setzbar. "
+            f"{position_status}"
         )
         send_telegram_message(alert_msg)
         return {"success": False, "error": "TP2-Only + TP2 fail – notgeschlossen"}
@@ -407,10 +403,9 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
     if not tp_ok:
         print(f"\n⚠️  TP unvollständig (TP1={tp1_ok}, TP2={tp2_ok}) – SL aktiv, Position läuft")
         alert_msg = (
-            f"⚠️ {asset} {direction.upper()} · TP unvollständig{' · DRY RUN' if DRY_RUN else ''}\n"
-            f"\n"
-            f"TP1 {'✅' if tp1_ok else '❌'}  TP2 {'✅' if tp2_ok else '❌'}\n"
-            f"SL aktiv @ ${stop_loss:,.4f} — Trade läuft weiter."
+            f"{asset} {direction.upper()}{' [DRY]' if DRY_RUN else ''} läuft, aber TP nicht vollständig gesetzt "
+            f"(TP1 {'ok' if tp1_ok else 'fehlt'}, TP2 {'ok' if tp2_ok else 'fehlt'}). "
+            f"SL ist aktiv bei ${stop_loss:,.4f}."
         )
         send_telegram_message(alert_msg)
 
@@ -840,12 +835,9 @@ def main():
         kill_threshold = hwm * (1 - DRAWDOWN_KILL_PCT)
         if balance < kill_threshold and not DRY_RUN:
             msg = (
-                f"🛑 KILL-SWITCH AKTIV\n"
-                f"\n"
-                f"Balance ${balance:.2f} liegt mehr als {int(DRAWDOWN_KILL_PCT*100)}% unter dem Hochpunkt.\n"
-                f"Keine neuen Trades bis zur manuellen Freigabe.\n"
-                f"\n"
-                f"Hochpunkt ${hwm:.2f}  ·  Schwelle ${kill_threshold:.2f}"
+                f"Wir stoppen heute. Book bei ${balance:.2f}, das ist mehr als "
+                f"{int(DRAWDOWN_KILL_PCT*100)}% unter dem Hochpunkt (${hwm:.2f}). "
+                f"Keine neuen Trades bis zur manuellen Freigabe."
             )
             print(f"\n🛑 KILL-SWITCH: Balance ${balance:.2f} < ${kill_threshold:.2f} (HWM ${hwm:.2f}) – Stop!")
             log_skip("kill_switch", breakout["asset"], session, {
@@ -870,7 +862,7 @@ def main():
             context=breakout,
         )
 
-        dry_tag = " [DRY RUN]" if DRY_RUN else ""
+        dry_tag = " [DRY]" if DRY_RUN else ""
 
         if result["success"]:
             print(f"\n✅ TRADE AUSGEFÜHRT{dry_tag}")
@@ -881,23 +873,18 @@ def main():
             print(f"   TP2 (3:1):   ${result['take_profit_2']:,.4f}  (Size {result['size_tp2']})")
             print(f"   Hebel:       {LEVERAGE}x")
 
-            direction_emoji = "🟢" if result["direction"] == "long" else "🔴"
-            direction_label = "LONG" if result["direction"] == "long" else "SHORT"
+            direction_label = "Long" if result["direction"] == "long" else "Short"
             session_label = (get_current_session() or "?").upper()
             msg = (
-                f"🚀 {result['asset']} {direction_label} · {session_label}{dry_tag}\n"
-                f"\n"
-                f"{direction_emoji} Entry  ${result['entry']:,.4f}\n"
-                f"🛑 SL      ${result['stop_loss']:,.4f}  (−${result['risk_usd']:.2f})\n"
-                f"🎯 TP1     ${result['take_profit_1']:,.4f}  (1R)\n"
-                f"🎯 TP2     ${result['take_profit_2']:,.4f}  (3R)\n"
-                f"\n"
-                f"Size {result['size']}  ·  {LEVERAGE}x Hebel"
+                f"Wir sind in einem {result['asset']} {direction_label}{dry_tag}. "
+                f"Entry bei ${result['entry']:,.4f}, SL bei ${result['stop_loss']:,.4f} "
+                f"(Risiko −${result['risk_usd']:.2f}). "
+                f"TP1 ${result['take_profit_1']:,.4f} · TP2 ${result['take_profit_2']:,.4f}. Let's go."
             )
             send_telegram_message(msg)
         else:
             print(f"\n❌ TRADE FEHLGESCHLAGEN: {result.get('error')}")
-            send_telegram_message(f"❌ APEX TRADE FEHLER{dry_tag}: {result.get('error')}")
+            send_telegram_message(f"Trade hat nicht geklappt{dry_tag} — {result.get('error')}")
 
         print("NO_REPLY")
         return result
@@ -917,6 +904,6 @@ if __name__ == "__main__":
         print(f"\n💥 ERROR: {e}")
         import traceback
         traceback.print_exc()
-        send_telegram_message(f"💥 APEX autonomous_trade.py ERROR: {e}")
+        send_telegram_message(f"Bot-Fehler (autonomous_trade) — {e}")
         print("NO_REPLY")
         sys.exit(1)

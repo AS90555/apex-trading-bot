@@ -125,6 +125,41 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-16 — H-006 EMA-Filter live, Freqtrade Signal-Bug, Telegram-Redesign
+
+**Thema:** Trade-Notes verarbeitet, Late-Entry-Filter analysiert, EMA-Alignment-Filter implementiert und live geschaltet, Freqtrade Signal-Spam-Bug behoben, alle Telegram-Nachrichten in kollegialen Banker-Ton umgeschrieben.
+
+**Analysen:**
+- Late-Entry-Filter (bd_ratio > 0.8): Netto-Effekt ~0R — kein systemischer Edge
+- EMA-200 Alignment: MIT Trend n=4 Avg +0.09R WR 50% vs. GEGEN Trend n=8 Avg −0.80R WR 12% → klares Signal
+- Freqtrade-Daten: Signal-Spam-Bug (XRP Long 35+ Entries in 75min) → Daten kontaminiert, nicht verwertbar
+- SL-Engstellung: kein Mehrwert (risk-basiertes Sizing → Position wächst, Dollar-Verlust bleibt gleich)
+
+**Implementierungen:**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | Pending Notes verarbeitet (3 Trades: ETH US LONG −0.98R, XRP TOKYO −1.05R, AVAX TOKYO +0.56R) | `trade_log.md` | Datenstand aktuell |
+| 2 | `H006_EMA_FILTER_ENABLED = True` Config-Flag | `config/bot_config.py` | Kugelsicherer Toggle |
+| 3 | EMA-200 Filter-Block (fail-safe: kein Block bei fehlenden Daten) | `scripts/autonomous_trade.py` | Basiert auf 12-Trade-Analyse: +6.44R Counterfactual |
+| 4 | 8/8 Edge-Case-Tests + vollständige Simulation aller 19 Trades | — | Verifikation vor Live-Schaltung |
+| 5 | Freqtrade Signal-Bug gefixt: `enter_long_first` — nur erste Breakout-Kerze | `ApexORB.py` | Signal feuerte jede 15m-Kerze nach Breakout → 35+ Entries |
+| 6 | Freqtrade `notification_settings` — Standard-Nachrichten off | `config.json` | Ersetzt durch eigene `dp.send_msg()` Calls |
+| 7 | Freqtrade Entry/Exit Telegram via `dp.send_msg()` im APEX-Stil | `ApexORB.py` | Einheitlicher Ton |
+| 8 | Alle Telegram-Nachrichten umgeschrieben (kollegial, direkt, kein Overhead) | `autonomous_trade.py`, `position_monitor.py`, `pre_market.py`, `nightly_report.py`, `daily_closeout.py` | Lesbarkeit, Bankerton |
+
+**Hypothesen:**
+- **H-006** von `open` auf `validating` gesetzt — Filter live seit 2026-04-16, Validation-Gate nach 10 neuen Trades (WR ≥ 40%, Avg R ≥ 0.0, ≥ 3 Skips)
+
+**Commits:**
+- `d4e6308` — H-006: EMA-200 Alignment Filter live (kugelsicher)
+- Telegram-Redesign: nur lokal committed (Push erfordert GitHub-Auth durch Andre)
+
+**Entscheidungen (mit Begründung):**
+- **Kein Late-Entry-Filter:** Simulation zeigt −0.05R Netto-Effekt. Problem ist Richtungsqualität, nicht Entry-Timing.
+- **Kein engerer SL:** Risk-basiertes Sizing → Dollar-Verlust identisch. SL sitzt korrekt an Box-Boundary.
+- **Freqtrade-Daten verworfen:** Signal-Bug kontaminiert alle Trades seit 15.04. Saubere Baseline ab heute.
+
 ### Session 2026-04-15 — Multi-Asset-Monitor, Freqtrade-Validierung, Telegram-Redesign
 
 **Thema:** Kritische Bugs aus Beobachtungen (Break-Even wurde bei AVAX nicht gesetzt trotz TP1-Hit) analysiert und behoben. Freqtrade-Strategy auf Daten-Validität geprüft. Telegram-Benachrichtigungen komplett neu gestaltet. H-011 eingetragen.

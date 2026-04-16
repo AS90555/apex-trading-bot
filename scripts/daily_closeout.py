@@ -139,7 +139,7 @@ if __name__ == "__main__":
         traceback.print_exc()
         try:
             from telegram_sender import send_telegram_message
-            send_telegram_message(f"\U0001f4a5 APEX daily_closeout.py ERROR: {e}")
+            send_telegram_message(f"Bot-Fehler (daily_closeout) — {e}")
         except Exception:
             pass
         sys.exit(1)
