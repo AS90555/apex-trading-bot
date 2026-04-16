@@ -439,6 +439,29 @@ class BitgetClient:
         except Exception:
             return 0.0
 
+    def get_open_interest_history(self, coin: str, period: str = "5m", limit: int = 2) -> list:
+        """OI-Verlauf als Liste von Dicts: [{"ts": ..., "oi": float}, ...], neueste zuletzt.
+        Wird für OI-Delta (aktuell vs. 5min vor Breakout) genutzt.
+        Returns [] bei Fehler.
+        """
+        try:
+            data = self._get("/api/v2/mix/market/open-interest-history", {
+                "symbol": self._symbol(coin),
+                "productType": PRODUCT_TYPE,
+                "period": period,
+                "limit": str(limit),
+            })
+            items = data if isinstance(data, list) else []
+            result = []
+            for item in items:
+                try:
+                    result.append({"ts": item.get("ts", ""), "oi": float(item.get("size", 0))})
+                except (ValueError, TypeError):
+                    pass
+            return result
+        except Exception:
+            return []
+
     def get_long_account_ratio(self, coin: str) -> float:
         """Anteil der Long-Accounts in % (0.0–1.0).
         0.68 = 68% aller Accounts halten Long-Positionen.

@@ -10,6 +10,7 @@ import sys
 import json
 import fcntl
 import time
+import urllib.request
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -155,6 +156,25 @@ def log_trade(trade_data):
     os.replace(tmp_file, TRADES_FILE)
 
 
+def _fetch_fear_and_greed() -> dict:
+    """Holt den aktuellen Fear & Greed Index von alternative.me (kostenlos, kein API-Key).
+    Returns: {"value": int, "label": str} z.B. {"value": 72, "label": "Greed"}
+    Nur für Logging — kein Filter. Bei Fehler: leeres Dict.
+    """
+    try:
+        url = "https://api.alternative.me/fng/?limit=1&format=json"
+        req = urllib.request.Request(url, headers={"User-Agent": "APEX-Bot/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+        entry = data["data"][0]
+        return {
+            "value": int(entry["value"]),
+            "label": entry["value_classification"],
+        }
+    except Exception:
+        return {}
+
+
 def _calc_ema(closes: list, period: int) -> float:
     """Exponential Moving Average (Standard EMA, k=2/(period+1))."""
     if len(closes) < period:
@@ -271,19 +291,40 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
 
     actual_entry = order_result.avg_price
 
-    # Market-Structure beim Entry: OI, Long-Account-%, Taker-Buy-Ratio, Funding Rate.
-    # Nur geloggt – kein Filter. Datenbasis für Spur 3 Analyse nach 30 Trades.
+    # Market-Structure beim Entry: OI + OI-Delta, Long-Account-%, Taker-Buy-Ratio, Funding Rate.
+    # Nur geloggt – kein Filter. Datenbasis für Analyse nach 30 Trades.
     market_structure = {}
     try:
+        oi_now = client.get_open_interest(asset)
+        # OI-Delta: aktueller OI vs. letzter verfügbarer 5-min-Historyeintrag
+        oi_delta = None
+        oi_delta_pct = None
+        try:
+            oi_hist = client.get_open_interest_history(asset, period="5m", limit=2)
+            if len(oi_hist) >= 2 and oi_hist[0]["oi"] > 0:
+                oi_prev = oi_hist[0]["oi"]
+                oi_delta = round(oi_now - oi_prev, 2)
+                oi_delta_pct = round((oi_delta / oi_prev) * 100, 3)
+        except Exception:
+            pass
         market_structure = {
-            "open_interest":    client.get_open_interest(asset),
-            "long_account_pct": client.get_long_account_ratio(asset),   # z.B. 0.68 = 68% Long-Accounts
+            "open_interest":    oi_now,
+            "oi_delta":         oi_delta,         # absolut (Kontrakte) — positiv = steigendes OI = echte neue Positionen
+            "oi_delta_pct":     oi_delta_pct,     # relativ in % — z.B. +1.2 = +1.2% OI-Anstieg
+            "long_account_pct": client.get_long_account_ratio(asset),   # 0.68 = 68% Long-Accounts
             "taker_buy_ratio":  client.get_taker_ratio(asset),           # >0.55 bullish, <0.45 bearish
             "funding_rate":     client.get_funding_rate(asset),          # positiv = Longs zahlen (überhitzt long)
         }
-        print(f"   📊 Market-Structure: OI={market_structure['open_interest']:.0f} | Long%={market_structure['long_account_pct']:.2%} | Taker={market_structure['taker_buy_ratio']:.3f} | Funding={market_structure['funding_rate']:+.4%}")
+        oi_delta_str = f" Δ{oi_delta_pct:+.2f}%" if oi_delta_pct is not None else ""
+        print(f"   📊 Market-Structure: OI={market_structure['open_interest']:.0f}{oi_delta_str} | Long%={market_structure['long_account_pct']:.2%} | Taker={market_structure['taker_buy_ratio']:.3f} | Funding={market_structure['funding_rate']:+.4%}")
     except Exception as e:
         print(f"   ⚠️  Market-Structure Fetch fehlgeschlagen: {e}")
+
+    # Fear & Greed Index (alternative.me, kostenlos, Tageswert).
+    # Nur geloggt – kein Filter. Datenbasis für spätere Korrelationsanalyse.
+    fear_greed = _fetch_fear_and_greed()
+    if fear_greed:
+        print(f"   😱 Fear & Greed: {fear_greed['value']} ({fear_greed['label']})")
 
     # Slippage: wie weit lag der Fill über (long) / unter (short) dem Breakout-Trigger?
     # Positive Werte = schlechter als Trigger (wir haben teurer gekauft / billiger verkauft).
@@ -448,8 +489,10 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "scan_latency_sec": ctx.get("scan_latency_sec"),
         # Trend-Kontext (EMA-200/50, ATR-14, trend_direction, atr_ratio)
         "trend_context": ctx.get("trend_context", {}),
-        # Market-Structure beim Entry (OI, Long/Short Ratio, Taker-Buy-Ratio)
+        # Market-Structure beim Entry (OI + Delta, Long/Short Ratio, Taker-Buy-Ratio, Funding)
         "market_structure": market_structure,
+        # Fear & Greed Index (alternative.me, Tageswert, nur Logging)
+        "fear_greed": fear_greed,
         # Meta
         "dry_run": DRY_RUN,
     })
