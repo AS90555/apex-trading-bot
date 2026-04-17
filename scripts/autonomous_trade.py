@@ -10,6 +10,7 @@ import sys
 import json
 import fcntl
 import time
+import math
 import urllib.request
 from datetime import datetime
 
@@ -204,6 +205,23 @@ def _calc_atr(candles: list, period: int = 14) -> float:
     for tr in trs[period:]:
         atr = (atr * (period - 1) + tr) / period
     return atr
+
+
+def _calc_sma(closes: list, period: int) -> float:
+    """Simple Moving Average (Arithmetisches Mittel der letzten N Closes)."""
+    if len(closes) < period:
+        return 0.0
+    return sum(closes[-period:]) / period
+
+
+def _calc_stdev(closes: list, period: int) -> float:
+    """Standardabweichung (Volatilität) über die letzten N Closes."""
+    if len(closes) < period:
+        return 0.0
+    subset = closes[-period:]
+    mean = sum(subset) / period
+    variance = sum((x - mean) ** 2 for x in subset) / period
+    return math.sqrt(variance)
 
 
 def check_breakout(asset, current_price, box_high, box_low):
@@ -725,6 +743,28 @@ def scan_for_breakouts(client):
             candles_15m = client.get_candles(asset, interval="15m", limit=210)
             if len(candles_15m) >= 200:
                 closes = [c["close"] for c in candles_15m]
+
+                # H-013: Volatility Squeeze (TTM) — Pure Python Implementation
+                # Squeeze = Bollinger Bands komplett innerhalb Keltner Channels
+                # → signalisiert Volatilitäts-Kontraktion + bevorstehenden explosiven Breakout
+                is_squeezing = False
+                try:
+                    # Bollinger Bands: SMA(20) ± 2.0 * StDev(20)
+                    sma_20 = _calc_sma(closes, 20)
+                    stdev_20 = _calc_stdev(closes, 20)
+                    upper_bb = sma_20 + (2.0 * stdev_20)
+                    lower_bb = sma_20 - (2.0 * stdev_20)
+
+                    # Keltner Channels: SMA(20) ± 1.5 * ATR(20)
+                    atr_20 = _calc_atr(candles_15m, 20)
+                    upper_kc = sma_20 + (1.5 * atr_20)
+                    lower_kc = sma_20 - (1.5 * atr_20)
+
+                    # Squeeze Condition: BB innerhalb KC
+                    is_squeezing = (lower_bb > lower_kc) and (upper_bb < upper_kc)
+                except Exception as e:
+                    print(f"   ⚠️  {asset}: Squeeze-Berechnung fehlgeschlagen ({e})")
+
                 ema_200 = _calc_ema(closes, 200)
                 ema_50  = _calc_ema(closes, 50)
                 atr_14  = _calc_atr(candles_15m, 14)
@@ -734,6 +774,7 @@ def scan_for_breakouts(client):
                     "atr_14":  round(atr_14, 4),
                     "trend_direction": "above" if closes[-1] > ema_200 else "below",
                     "atr_ratio": round(box_range / atr_14, 3) if atr_14 > 0 else 0.0,
+                    "is_squeezing": is_squeezing,  # H-013: Volatility Squeeze Flag
                 }
             # 4H-Trend: EMA-50 auf 4-Stunden-Kerzen (≈25 Tage Lookback)
             # 150 Candles = 100 Warmup-Perioden für saubere EMA-50-Konvergenz.
