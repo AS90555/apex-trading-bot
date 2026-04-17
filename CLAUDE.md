@@ -44,7 +44,13 @@ Dann führe automatisch diese Schritte durch, BEVOR du Andre antwortest:
    - Wenn Andre zustimmt (//EXECUTE): Implementiere, teste, trage Hypothese ein
    - Wenn Andre ablehnt oder anderes Thema hat: Folge seinem Lead
 
-5. **Wissensaufbau:** Wenn in der Analyse Wissenslücken auffallen (markiert mit `[ ]` in knowledge_base.md oder neue Fragen):
+5. **Montags-Pflicht – Weekly Audit Review:** Prüfe zuerst `date +%u` (1 = Montag).
+   - Wenn Montag: Lese den neuesten Report in `/root/.claude/projects/-root-apex-trading-bot/memory/reviews/skip_audit_*.md`
+   - Falls keiner existiert (erste Woche): Führe `python3 scripts/weekly_audit.py --no-telegram` aus und lese das Ergebnis
+   - Präsentiere Andre eine **strukturierte Analyse** (3–5 Sätze): dominante Skip-Gründe, Auffälligkeiten, eine konkrete Handlungsempfehlung
+   - Markiere unter Hypothesen-Gates ob ein Gate durch die Daten näher gerückt ist
+
+6. **Wissensaufbau:** Wenn in der Analyse Wissenslücken auffallen (markiert mit `[ ]` in knowledge_base.md oder neue Fragen):
    - Führe Web-Recherche durch (Bitget-API-Docs, quantitative Trading-Literatur, Microstruktur)
    - Dokumentiere Erkenntnisse in `knowledge_base.md` unter der passenden Sektion
    - Leite konkrete Hypothesen ab wenn die Recherche actionable Insights liefert
@@ -124,6 +130,68 @@ apex-trading-bot/
 ---
 
 ## Architektur-Entscheidungen & Session-Log
+
+### Session 2026-04-16 (Abend) — H4-Filter scharf, Market-Structure-Analyse, OI/Externe Quellen-Bewertung
+
+**Thema:** Letzten Trade analysiert (ETH SHORT 09:55), H4-Alignment-Filter aktiviert, Market-Structure-Metriken erklärt und bewertet, externe Finanzquellen evaluiert.
+
+**Analysen:**
+
+- **ETH SHORT (09:55 EU):** Trade war vor dem H-006-Commit (10:19) — regelkonform. Aber 3 Warnsignale: H4 nicht aligned (ETH über 4H EMA50), 62% Long-Accounts (Contrarian für Short), Breakout-Distanz 1,97x Box-Range. Slippage $9,94 = 17% der Balance bei Entry.
+- **`long_account_pct` = 62%:** Anteil der Trader-Accounts auf Bitget mit offener Long-Position. Contrarian-Indikator, kein direktes Filter-Signal. 62% Long → bei Short-Trade erhöhtes Squeeze-Risiko. Ist Stimmungs-, kein Richtungsindikator.
+- **Open Interest:** Nur als Momentaufnahme geloggt — ohne OI-Delta (vorher vs. nachher) wenig aussagekräftig. n=13 zu klein für Filter. Weiter loggen, OI-Delta einbauen, nach 30 Trades auswerten.
+- **Externe Quellen:** Fear & Greed Index (kostenlos, JSON) einziger praktikabler Kandidat. CoinGlass/Glassnode zu teuer, zu weit vom ORB-Kontext. Empfehlung: F&G loggen, nach 30 Trades auf Korrelation prüfen.
+
+**Implementierungen:**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | `H006_REQUIRE_H4_ALIGN = True` | `config/bot_config.py` | Trade heute wäre geblockt worden — H4 gegen Short. Filter jetzt scharf. |
+
+**Entscheidungen (mit Begründung):**
+- **H4-Filter aktiviert:** Daten-Grundlage: heutiger Trade. H4 nicht aligned = gegen übergeordneten Trend. Risiko: weniger Trades. Bewusst akzeptiert.
+- **OI-Filter nicht implementiert:** n=13, kein Delta. Noch nicht reif.
+- **Externe Quellen nicht implementiert:** Fear & Greed ist Kandidat, aber erst loggen, dann entscheiden.
+
+**Hypothesen:**
+- H-006 bleibt auf `validating` — jetzt mit 4H-Bedingung. Validation-Gate unverändert (10 neue Trades, WR ≥ 40%).
+
+**Offene Punkte für nächste Session:**
+- OI-Delta beim Entry einbauen (OI 5min vor Breakout vs. Entry)
+- Fear & Greed Index logging evaluieren
+
+### Session 2026-04-17 — Deep Review + H-007 Decision (Logging statt Block)
+
+**Thema:** Deep Review durchgeführt (Trades 11-21, letzte 11 seit 04-13). EMA-Alignment als dominanter Faktor identifiziert. H-007 Entscheidung: Option A (Info-Logging, kein Block). H-008 bereits live erkannt (5-Min Cron läuft).
+
+**Zentrale Erkenntnisse:**
+- **EMA-Alignment dominiert:** MIT Trend (n=6) +0.51R @ 83% WR | GEGEN Trend (n=5) -0.71R @ 20% WR
+- **Counterfactual H-006:** Filter würde letzte 11 Trades um +3.56R verbessern (filterte -0.71R avg Trades)
+- **H-006 validiert sich:** 3 Post-Live Trades (ab 04-16) = 100% WR, +0.53R avg, 22 ema200_misaligned Skips
+- **H-008 bereits live:** 5-Min Cron läuft, aber ETH-Slippage trotzdem ~$3.53 (Root Cause nicht Scan-Frequenz)
+- **H-007 SWOT:** Nur 1 blockierter Kandidat (ETH 04-16, ratio 1.52, aber +0.60R WIN). EV blockieren = negativ
+
+**Implementierungen:**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | Deep Review Report geschrieben | `reviews/review_2026-04-17.md` | 11 Trades, WR 55%, Slippage-Trends, H-006 +3.56R Counterfactual |
+| 2 | Trade-Log Pending Notes (2×) | `trade_log.md` | XRP EU +0.44R, SOL US -1.00R verarbeitet |
+| 3 | H-006 Zwischenstand | `hypothesis_log.md` | 22 Skips, n=3 Post-Live 100% WR, Counterfactual +3.56R |
+| 4 | H-007 Logging implementiert | `autonomous_trade.py` L485-487 | `trigger_distance_ratio = (breakout_distance - threshold) / box_range` berechnen |
+| 5 | H-007 Status aktualisiert | `hypothesis_log.md` | Von "open" → "info-logging", Gate nach 10 Trades mit ratio-Daten |
+| 6 | pnl_tracker.json reset | `pnl_tracker.json` | `trades_since_last_review = 0`, `deep_review_pending.flag` gelöscht |
+| 7 | Pending notes geleert (2×) | `pending_notes.jsonl` | Nach Verarbeitung bei jedem Session-Start |
+
+**Hypothesen-Updates:**
+- **H-001:** Gate 1 erfüllt (≥1 Vorschlag datengetrieben: H-003, H-004, H-006, H-008, H-009 alle validiert)
+- **H-006:** Zwischenstand dokumentiert (counterfactual +3.56R über 11 Trades; 3/3 Post-Live +0.50R+)
+- **H-007:** Von "open" → "info-logging" (Logging aktiv, Gate nach 10 Trades mit ratio>0.5-Trades)
+
+**Entscheidungen (mit Begründung):**
+- **H-007 Option A (Logging):** EV-Rechnung zeigt blockieren würde sicher -0.60R kosten, nur max +3R sparen wenn nächste 3 trades alle LOSS sind. Mit n=1 nicht hinreichend.
+- **H-008 bereits live:** 5-Min Cron läuft, aber ETH-Slippage bleibt hoch → Problem liegt nicht an Cron, sondern an Entry-Execution oder Market-Depth.
+- **Nächster Evaluationspunkt:** Deep Review nach 10 Trades (ca. 2-3 Wochen) für saubere H-006/H-007/H-008 Validation.
 
 ### Session 2026-04-16 — H-006 EMA-Filter live, Freqtrade Signal-Bug, Telegram-Redesign
 

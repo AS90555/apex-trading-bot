@@ -24,38 +24,35 @@ def load_telegram_config():
     
     return config
 
-def send_telegram_message(message: str, parse_mode: str = "Markdown") -> bool:
+def send_telegram_message(message: str, parse_mode: str = None) -> bool:
     """
-    Send message directly to Telegram
-    
-    Args:
-        message: Message text
-        parse_mode: "Markdown" or "HTML"
-    
+    Send message directly to Telegram (plain text, kein Markdown-Parsing).
+
     Returns:
         True if sent successfully
     """
     try:
         config = load_telegram_config()
-        
+
         bot_token = config.get('TELEGRAM_BOT_TOKEN')
         chat_id = config.get('TELEGRAM_CHAT_ID')
-        
+
         if not bot_token or bot_token == 'your_token_here':
             print("⚠️  TELEGRAM_BOT_TOKEN not configured in .env.telegram")
             return False
-        
+
         if not chat_id:
             print("⚠️  TELEGRAM_CHAT_ID not configured")
             return False
-        
+
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        
+
         data = {
             "chat_id": chat_id,
             "text": message,
-            "parse_mode": parse_mode
         }
+        if parse_mode:
+            data["parse_mode"] = parse_mode
         
         response = requests.post(url, json=data, timeout=10)
         

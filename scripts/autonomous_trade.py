@@ -27,7 +27,8 @@ try:
         DRY_RUN, CAPITAL, MAX_RISK_PCT, ASSET_PRIORITY,
         BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS, DRAWDOWN_KILL_PCT,
         MIN_BOX_RANGE, MAX_BOX_AGE_MIN, MAX_BREAKOUT_DISTANCE_RATIO,
-        H006_EMA_FILTER_ENABLED, H006_REQUIRE_H4_ALIGN
+        H006_EMA_FILTER_ENABLED, H006_REQUIRE_H4_ALIGN,
+        MIN_BALANCE_USD, MAX_SL_DISTANCE_PCT, DAILY_DD_KILL_R,
     )
 except ImportError:
     DRY_RUN = True
@@ -43,6 +44,9 @@ except ImportError:
     MAX_BREAKOUT_DISTANCE_RATIO = 2.0
     H006_EMA_FILTER_ENABLED = False
     H006_REQUIRE_H4_ALIGN = False
+    MIN_BALANCE_USD = 10.0
+    MAX_SL_DISTANCE_PCT = 0.10
+    DAILY_DD_KILL_R = -2.0
 
 MAX_RISK_USD = CAPITAL * MAX_RISK_PCT
 
@@ -479,6 +483,8 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "box_range": ctx.get("box_range", box_high - box_low),
         "box_age_min": ctx.get("box_age_min"),
         "breakout_distance": ctx.get("breakout_distance"),
+        # H-007: Late-Entry Trigger-Distance Ratio (Information-Logging, kein Filter)
+        "trigger_distance_ratio": round(((ctx.get("breakout_distance", 0) - BREAKOUT_THRESHOLD.get(asset, entry_price * 0.002)) / ctx.get("box_range", 1)), 3) if ctx.get("box_range", 0) > 0 else None,
         # Volume-Kontext (für spätere Analyse)
         "volume_at_breakout": ctx.get("volume_at_breakout"),
         "volume_avg_20": ctx.get("volume_avg_20"),
@@ -809,9 +815,124 @@ def scan_for_breakouts(client):
     return None, positions
 
 
-def main():
+def pre_trade_sanity_check(breakout: dict, risk_usd: float, balance: float) -> tuple:
+    """Opt 1 – Blockiert Trades bei implausiblen Grunddaten.
+
+    Checks:
+      - Balance >= MIN_BALANCE_USD (sonst Min-Order nicht erreichbar)
+      - entry_price > 0 und box_high > box_low (Box-Integrität)
+      - SL-Abstand zum Entry plausibel (0 < dist < MAX_SL_DISTANCE_PCT * entry)
+      - risk_usd > 0 und nicht absurd hoch
+
+    Returns: (ok: bool, reason: str, context: dict)
+    """
+    ctx = {
+        "balance": round(balance, 2),
+        "risk_usd": round(risk_usd, 4),
+        "asset": breakout.get("asset"),
+        "direction": breakout.get("direction"),
+    }
+    if balance < MIN_BALANCE_USD:
+        return False, "balance_too_low", {**ctx, "min_required": MIN_BALANCE_USD}
+
+    entry = float(breakout.get("current_price", 0) or 0)
+    box_high = float(breakout.get("box_high", 0) or 0)
+    box_low = float(breakout.get("box_low", 0) or 0)
+    if entry <= 0:
+        return False, "invalid_entry_price", {**ctx, "entry_price": entry}
+    if box_high <= box_low:
+        return False, "invalid_box", {**ctx, "box_high": box_high, "box_low": box_low}
+
+    direction = breakout.get("direction")
+    box_range = box_high - box_low
+    sl_buffer = max(box_range * 0.1, entry * 0.001)
+    projected_sl = (box_low - sl_buffer) if direction == "long" else (box_high + sl_buffer)
+    sl_distance = abs(entry - projected_sl)
+    sl_distance_pct = sl_distance / entry if entry else 0
+
+    if sl_distance <= 0:
+        return False, "sl_distance_zero", {**ctx, "projected_sl": projected_sl, "entry": entry}
+    if sl_distance_pct > MAX_SL_DISTANCE_PCT:
+        return False, "sl_distance_too_wide", {
+            **ctx, "sl_distance_pct": round(sl_distance_pct, 4),
+            "max_allowed_pct": MAX_SL_DISTANCE_PCT,
+        }
+
+    if risk_usd <= 0:
+        return False, "risk_usd_invalid", {**ctx}
+    # Absurditätsschutz: > 5x MAX_RISK_USD deutet auf Config/Balance-Bug hin
+    if risk_usd > MAX_RISK_USD * 5:
+        return False, "risk_usd_excessive", {**ctx, "max_expected": MAX_RISK_USD * 5}
+
+    return True, "ok", {**ctx, "sl_distance_pct": round(sl_distance_pct, 4)}
+
+
+# ---------------------------------------------------------------------------
+# Daily Drawdown Tracker (Opt 2)
+# ---------------------------------------------------------------------------
+DAILY_PNL_FILE = os.path.join(DATA_DIR, "daily_pnl.json")
+
+
+def load_daily_pnl() -> dict:
+    """Lädt Tages-PnL-Tracker. Auto-Reset bei Datumswechsel."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    default = {"date": today, "realized_pnl_usd": 0.0, "realized_r": 0.0,
+               "trades_closed": 0, "kill_alert_sent": False}
+    if not os.path.exists(DAILY_PNL_FILE):
+        return default
+    try:
+        with open(DAILY_PNL_FILE, "r") as f:
+            data = json.load(f)
+        if data.get("date") != today:
+            return default  # Neuer Tag → Reset
+        return {**default, **data}
+    except (json.JSONDecodeError, OSError):
+        return default
+
+
+def save_daily_pnl(data: dict) -> None:
+    """Atomar speichern."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    tmp = DAILY_PNL_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, DAILY_PNL_FILE)
+
+
+def check_daily_dd_breaker() -> tuple:
+    """Opt 2 – Tages-DD-Circuit-Breaker.
+
+    Returns: (ok: bool, reason: str, context: dict)
+    """
+    d = load_daily_pnl()
+    daily_r = d.get("realized_r", 0.0)
+    if daily_r <= DAILY_DD_KILL_R:
+        return False, "daily_dd_kill", {
+            "date": d["date"],
+            "daily_r": round(daily_r, 2),
+            "daily_pnl_usd": round(d.get("realized_pnl_usd", 0.0), 2),
+            "trades_closed": d.get("trades_closed", 0),
+            "threshold_r": DAILY_DD_KILL_R,
+            "alert_sent": d.get("kill_alert_sent", False),
+        }
+    return True, "ok", {"daily_r": round(daily_r, 2)}
+
+
+def mark_daily_dd_alert_sent() -> None:
+    """Verhindert wiederholte Telegram-Alerts beim selben Tages-Kill."""
+    d = load_daily_pnl()
+    d["kill_alert_sent"] = True
+    save_daily_pnl(d)
+
+
+def main(scan_only: bool = False):
+    """Main Trade-Entry. Mit scan_only=True werden alle Checks gelaufen, aber
+    KEIN Trade ausgeführt und KEINE Telegram-Nachricht gesendet. Für Canary-Runs
+    nach Deploy oder manuelle Verifikation während der Session.
+    """
     print("=" * 60)
-    print("APEX - Autonomous Trade Check")
+    mode_tag = " [SCAN-ONLY]" if scan_only else ""
+    print(f"APEX - Autonomous Trade Check{mode_tag}")
     print("=" * 60)
 
     # File-Lock: verhindert parallele Ausführung durch Cron-Überlappung
@@ -828,13 +949,17 @@ def main():
         if DRY_RUN:
             print("⚠️  DRY RUN MODUS - kein echtes Geld")
 
-        # Session prüfen
+        # Session prüfen (im Scan-Only-Modus tolerant: erlaubt Tests außerhalb Session)
         session = get_current_session()
         if not session:
-            print("⚠️  Außerhalb der Trading-Sessions")
-            log_skip("no_session", None, None, {"hour": datetime.now().hour})
-            print("NO_REPLY")
-            return
+            if scan_only:
+                print("ℹ️  Außerhalb der Trading-Sessions – Scan-Only läuft trotzdem weiter")
+                session = "scan-only"
+            else:
+                print("⚠️  Außerhalb der Trading-Sessions")
+                log_skip("no_session", None, None, {"hour": datetime.now().hour})
+                print("NO_REPLY")
+                return
 
         print(f"📍 Session: {session.upper()}")
 
@@ -843,6 +968,21 @@ def main():
             msg = f"⏭️ APEX {session.upper()}: Skip – bereits getradet"
             print(f"\n✅ {msg}")
             log_skip("already_traded", None, session)
+            print("NO_REPLY")
+            return
+
+        # Opt 2: Daily Drawdown Circuit Breaker – vor API-Calls prüfen
+        dd_ok, dd_reason, dd_ctx = check_daily_dd_breaker()
+        if not dd_ok:
+            print(f"\n🛑 DAILY-DD-KILL: {dd_ctx['daily_r']}R heute (Limit {dd_ctx['threshold_r']}R)")
+            log_skip(dd_reason, None, session, dd_ctx)
+            if not dd_ctx.get("alert_sent"):
+                send_telegram_message(
+                    f"Tages-Limit erreicht: {dd_ctx['daily_r']}R "
+                    f"(${dd_ctx['daily_pnl_usd']:+.2f}) nach {dd_ctx['trades_closed']} Trades heute. "
+                    f"Keine neuen Trades bis morgen."
+                )
+                mark_daily_dd_alert_sent()
             print("NO_REPLY")
             return
 
@@ -892,6 +1032,30 @@ def main():
             print("NO_REPLY")
             return
 
+        # Opt 1: Pre-Trade Sanity Check
+        sanity_ok, sanity_reason, sanity_ctx = pre_trade_sanity_check(breakout, risk_usd, balance)
+        if not sanity_ok:
+            print(f"\n🛑 SANITY CHECK FAIL: {sanity_reason}")
+            print(f"   Context: {sanity_ctx}")
+            log_skip(sanity_reason, breakout["asset"], session, sanity_ctx)
+            if not scan_only:
+                send_telegram_message(
+                    f"Trade blockiert ({breakout['asset']} {breakout['direction'].upper()}): "
+                    f"{sanity_reason}. Kontext: {sanity_ctx}"
+                )
+            print("NO_REPLY")
+            return
+        print(f"\n✅ Sanity Check OK: SL-Distanz {sanity_ctx.get('sl_distance_pct', 0)*100:.2f}%")
+
+        # Scan-Only: Alle Checks gelaufen, aber kein Trade. Ausstieg hier.
+        if scan_only:
+            print("\n🔎 SCAN-ONLY: Echter Trade würde JETZT ausgelöst werden.")
+            print(f"   Asset: {breakout['asset']} | Direction: {breakout['direction'].upper()}")
+            print(f"   Entry: ${breakout['current_price']:,.4f} | Risk: ${risk_usd:.2f}")
+            print("   → Keine Order platziert, kein Telegram gesendet.")
+            print("NO_REPLY")
+            return {"success": True, "scan_only": True, "would_trade": breakout}
+
         # Trade ausführen
         print(f"\n🚀 Führe {breakout['direction']} Trade aus...")
         result = execute_breakout_trade(
@@ -940,8 +1104,9 @@ def main():
 if __name__ == "__main__":
     from log_utils import setup_logging
     setup_logging()
+    scan_only_flag = "--scan-only" in sys.argv
     try:
-        result = main()
+        result = main(scan_only=scan_only_flag)
         sys.exit(0)
     except Exception as e:
         print(f"\n💥 ERROR: {e}")

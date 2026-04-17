@@ -16,6 +16,14 @@ MAX_RISK_PCT = 0.02     # Max Risiko pro Trade (2%)
 MIN_RR_RATIO = 2.0      # Mindest Risk/Reward Verhältnis
 DRAWDOWN_KILL_PCT = 0.50  # Kill-Switch: keine Trades wenn Balance < 50% von CAPITAL
 
+# PRE-TRADE SANITY CHECK (Opt 1)
+MIN_BALANCE_USD = 10.0       # Keine Trades unter $10 Balance (Min-Order-Risiko)
+MAX_SL_DISTANCE_PCT = 0.10   # SL-Abstand > 10% vom Entry → implausibel, kein Trade
+
+# DAILY DRAWDOWN CIRCUIT BREAKER (Opt 2)
+DAILY_DD_KILL_R = -2.0       # Tages-R-Limit: bei <= -2R heute keine neuen Trades mehr
+                              # Auto-Reset um 00:00 Berlin (Datumswechsel)
+
 # HEBEL
 
 LEVERAGE = 5            # Hebel (5x empfohlen bei 50 USDT)
@@ -77,7 +85,7 @@ MAX_BREAKOUT_DISTANCE_RATIO = 2.0  # Max Breakout-Distanz als Vielfaches der Box
 # Fail-safe: Fehlt ema_200 oder ist EMA-Daten-Berechnung fehlgeschlagen → Trade läuft
 # wie bisher durch (kein Blockieren bei unklarer Datenlage).
 H006_EMA_FILTER_ENABLED = True
-H006_REQUIRE_H4_ALIGN   = False  # True = zusätzlich 4H-EMA-50-Alignment erforderlich
+H006_REQUIRE_H4_ALIGN   = True   # True = zusätzlich 4H-EMA-50-Alignment erforderlich
 
 # WEEKEND MOMENTUM
 

@@ -20,6 +20,7 @@ STATE_FILE = os.path.join(DATA_DIR, "monitor_state.json")
 PNL_TRACKER_FILE = os.path.join(DATA_DIR, "pnl_tracker.json")
 PENDING_NOTES_FILE = os.path.join(DATA_DIR, "pending_notes.jsonl")
 DEEP_REVIEW_FLAG_FILE = os.path.join(DATA_DIR, "deep_review_pending.flag")
+DAILY_PNL_FILE = os.path.join(DATA_DIR, "daily_pnl.json")  # Opt 2: Daily-DD-Breaker
 DEEP_REVIEW_THRESHOLD = 10  # Alle 10 Trades Deep Review triggern
 
 sys.path.insert(0, os.path.join(PROJECT_DIR, "config"))
@@ -326,6 +327,38 @@ def update_pnl_tracker(pnl):
     os.replace(tmp_file, PNL_TRACKER_FILE)
 
 
+def update_daily_pnl(pnl_usd: float, pnl_r: float) -> None:
+    """Opt 2 – Tages-PnL-Tracker für Daily-DD-Circuit-Breaker.
+
+    Auto-Reset bei Datumswechsel. Atomar geschrieben.
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        if os.path.exists(DAILY_PNL_FILE):
+            with open(DAILY_PNL_FILE, "r") as f:
+                data = json.load(f)
+            if data.get("date") != today:
+                data = {"date": today, "realized_pnl_usd": 0.0, "realized_r": 0.0,
+                        "trades_closed": 0, "kill_alert_sent": False}
+        else:
+            data = {"date": today, "realized_pnl_usd": 0.0, "realized_r": 0.0,
+                    "trades_closed": 0, "kill_alert_sent": False}
+
+        data["realized_pnl_usd"] = round(data.get("realized_pnl_usd", 0.0) + float(pnl_usd), 4)
+        data["realized_r"] = round(data.get("realized_r", 0.0) + float(pnl_r), 3)
+        data["trades_closed"] = data.get("trades_closed", 0) + 1
+        data["last_update"] = datetime.now().isoformat()
+
+        os.makedirs(DATA_DIR, exist_ok=True)
+        tmp = DAILY_PNL_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, DAILY_PNL_FILE)
+        print(f"   📅 Daily-PnL: {data['realized_r']:+.2f}R (${data['realized_pnl_usd']:+.2f}) nach {data['trades_closed']} Trades")
+    except Exception as e:
+        print(f"⚠️  Daily-PnL Update fehlgeschlagen: {e}")
+
+
 def main():
     """Main monitoring logic — unterstützt mehrere parallele Positionen."""
     client = BitgetClient(dry_run=DRY_RUN)
@@ -370,6 +403,13 @@ def main():
         if coin in current_coins:
             continue  # noch offen → weiter unten verarbeiten
 
+        # Idempotenz-Guard: Falls Exit bereits in einem früheren Run verarbeitet wurde
+        # (z.B. nach Exception vor save_state), nicht erneut melden/loggen.
+        last_trade_check = load_last_trade(coin)
+        if last_trade_check and last_trade_check.get("exit_timestamp"):
+            print(f"   ℹ️  {coin} Exit bereits geloggt – State-Cleanup")
+            continue
+
         opened_at_ms = trade_state.get("position_opened_at", 0)
         be_was_applied = trade_state.get("be_applied", False)
 
@@ -407,9 +447,9 @@ def main():
                 f"{result_line}\n"
                 f"Entry ${entry_price:,.4f} · Exit ${exit_price:,.4f}"
             )
-            print(f"\n{emoji} {tag}: {sign}${total_pnl:.2f} ({sign}{pnl_r}R)")
             send_telegram_notification(message)
             update_pnl_tracker(total_pnl)
+            update_daily_pnl(total_pnl, pnl_r)  # Opt 2: Daily-DD-Breaker-Input
 
             funding_paid = client.get_funding_paid(coin, opened_at_ms) if opened_at_ms else None
             update_trade_with_exit(coin, total_pnl, exit_price, be_was_applied, funding_paid)
