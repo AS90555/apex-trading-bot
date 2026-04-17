@@ -319,8 +319,15 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
             "taker_buy_ratio":  client.get_taker_ratio(asset),           # >0.55 bullish, <0.45 bearish
             "funding_rate":     client.get_funding_rate(asset),          # positiv = Longs zahlen (überhitzt long)
         }
+
+        # H-012: OR Mid Shift (Value Area Bias) – aus breakout context hinzufügen
+        if context and "or_mid_shift" in context:
+            market_structure["or_bias"] = context.get("or_bias")
+            market_structure["or_mid_shift"] = context["or_mid_shift"]
+
         oi_delta_str = f" Δ{oi_delta_pct:+.2f}%" if oi_delta_pct is not None else ""
-        print(f"   📊 Market-Structure: OI={market_structure['open_interest']:.0f}{oi_delta_str} | Long%={market_structure['long_account_pct']:.2%} | Taker={market_structure['taker_buy_ratio']:.3f} | Funding={market_structure['funding_rate']:+.4%}")
+        or_bias_str = f" | OR-Bias={context.get('or_bias', 'n/a')} Aligned={context.get('or_mid_shift', {}).get('bias_aligned', 'n/a')}" if context and "or_mid_shift" in context else ""
+        print(f"   📊 Market-Structure: OI={market_structure['open_interest']:.0f}{oi_delta_str} | Long%={market_structure['long_account_pct']:.2%} | Taker={market_structure['taker_buy_ratio']:.3f} | Funding={market_structure['funding_rate']:+.4%}{or_bias_str}")
     except Exception as e:
         print(f"   ⚠️  Market-Structure Fetch fehlgeschlagen: {e}")
 
@@ -794,6 +801,16 @@ def scan_for_breakouts(client):
                     })
                     continue
 
+        # H-012: OR Mid Shift (Value Area Bias) – Session-to-Session Price-Action Filter
+        # Vergleiche die Mitte der aktuellen Box mit der Mitte der vorherigen Session
+        box_mid = (box["high"] + box["low"]) / 2.0
+        prev_mid = box.get("prev_mid")  # Wird in save_opening_range.py berechnet
+        or_bias = "neutral"
+        bias_aligned = False
+        if prev_mid is not None and prev_mid > 0:
+            or_bias = "long" if box_mid > prev_mid else "short"
+            bias_aligned = (direction == or_bias)  # Trade stimmt mit Bias überein?
+
         return {
             "asset": asset,
             "direction": direction,
@@ -810,6 +827,8 @@ def scan_for_breakouts(client):
             "close_position": round(close_position, 3),
             "scan_latency_sec": round(latency_sec, 1),
             "trend_context": trend_context,
+            "or_bias": or_bias,
+            "or_mid_shift": {"box_mid": round(box_mid, 6), "prev_mid": round(prev_mid, 6) if prev_mid else None, "bias_aligned": bias_aligned},
         }, positions
 
     return None, positions

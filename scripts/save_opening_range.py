@@ -36,11 +36,20 @@ def save_opening_range():
 
     assets = ASSETS
     boxes = {}
-    
+
+    # Lade alte Boxes um prev_mid (Mitte der vorherigen Session) zu berechnen (H-012)
+    old_boxes = {}
+    if os.path.exists(BOXES_FILE):
+        try:
+            with open(BOXES_FILE, "r") as f:
+                old_boxes = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            old_boxes = {}
+
     print("=" * 60)
     print("APEX - Opening Range Capture")
     print("=" * 60)
-    
+
     for asset in assets:
         try:
             # limit=5: candles sortiert oldest-first
@@ -63,12 +72,18 @@ def save_opening_range():
                 print(f"⚠️  {asset}: Box Range ${box_range:.4f} < Min ${min_range:.4f} – übersprungen")
                 continue
 
+            # H-012: Berechne prev_mid aus alter Box (Mitte der vorherigen Session)
+            prev_mid = None
+            if asset in old_boxes and "high" in old_boxes[asset] and "low" in old_boxes[asset]:
+                prev_mid = (old_boxes[asset]["high"] + old_boxes[asset]["low"]) / 2.0
+
             boxes[asset] = {
                 "high": candle["high"],
                 "low": candle["low"],
                 "open": candle["open"],
                 "close": candle["close"],
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "prev_mid": prev_mid  # H-012: Mitte der vorherigen Session für OR-Bias-Berechnung
             }
 
             rng_display = candle['high'] - candle['low']
