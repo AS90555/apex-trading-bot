@@ -131,6 +131,56 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-18 — Two New Shadow-Logging Filters: OR-Mid Shift (H-012) + Volatility Squeeze (H-013)
+
+**Thema:** User stellte zwei neue institutionelle ORB-Filter vor. Beide implementiert als Shadow-Logging (kein Block, nur Datensammlung für spätere EV-Analyse).
+
+**Zentrale Erkenntnisse:**
+
+- **H-012 (OR Mid Shift / Value Area Bias):** Session-zu-Session-Vergleich der Opening Range Midline ist institutioneller ORB-Standard. Wenn sich Mitte aufwärts verschiebt → Markt akzeptiert höhere Preise (Bullish Bias). Abwärts → Bearish. Filter blockiert Breakouts gegen Bias → eliminiert Fake-Reversals (Wicks). Orthogonal zu EMA-Filter (H-006).
+
+- **H-013 (Volatility Squeeze / TTM):** John Carter Squeeze-Indikator (BB innerhalb KC) signalisiert Volatilitäts-Kontraktion vor explosivem Breakout. Pure Python Implementation (SMA, StDev, kein numpy/talib). Nutzt ohnehin geladene 210×15m-Candles, zero zusätzliche API-Calls. Orthogonal zu EMA (Trend) und OR-Mid (Level).
+
+- **Both Shadow-Logging First:** Logging-Before-Blocking vermeidet Confirmation Bias. Nach 15 (H-012) / 30 (H-013) Trades: avg-R-Analyse, Win-Rate-Vergleich, Blockier-Gate-Entscheidung.
+
+**Implementierungen:**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | H-012 registrieren | `memory/hypothesis_log.md` | Offizielle Hypothesen-Registry |
+| 2 | save_opening_range.py: prev_mid berechnen | `save_opening_range.py` | Lade alte Box, speichere (high+low)/2 als Session-Referenz |
+| 3 | scan_for_breakouts(): OR-Bias-Berechnung | `autonomous_trade.py` | Aktuelle mid vs. prev_mid → or_bias + bias_aligned Flags |
+| 4 | execute_breakout_trade(): or_bias logging | `autonomous_trade.py` | {or_bias, or_mid_shift, bias_aligned} in market_structure → trades.json |
+| 5 | H-013 registrieren | `memory/hypothesis_log.md` | Offizielle Hypothesen-Registry |
+| 6 | math import hinzufügen | `autonomous_trade.py` | Benötigt für math.sqrt() in _calc_stdev |
+| 7 | _calc_sma(), _calc_stdev() Hilfsfunktionen | `autonomous_trade.py` | Pure Python: SMA(20), StDev(20) für Bollinger Bands |
+| 8 | Squeeze-Block in trend_context | `autonomous_trade.py` | BB ± 2.0×StDev vs. KC ± 1.5×ATR → is_squeezing Boolean |
+| 9 | Knowledge Base erweitert (H-012, H-013) | `memory/knowledge_base.md` | Mathematik, Validations-Gates, Orthogonalität zu H-006 |
+
+**Hypothesen-Aktivität:**
+
+- **H-012** (NEW): `open / shadow-logging`. Validation Gate nach 15 Trades: (a) bias_aligned=true avg-R > false? (b) ≥3 blockierbare Kandidaten geloggt? (c) Win-Rate aligned ≥45%?
+- **H-013** (NEW): `open / shadow-logging`. Validation Gate nach 30 Trades: (a) is_squeezing=true avg-R > false? (b) Win-Rate Squeeze ≥45%? (c) ≥5 Trades während Squeeze?
+
+**Entscheidungen (mit Begründung):**
+
+- **Shadow-Logging (kein Block jetzt):** Saubere Kausalität bei später Validation. Blockieren erfordert n≥10 und starke Korrelation. Mit n=0 jetzt blockieren = Confirmation Bias.
+- **Pure Python für H-013:** Keine zusätzlichen Dependencies, keine API-Call-Mehrkosten, robust. math ist Standard-Library.
+- **Beide orthogonal designen:** H-006 (EMA Trend) + H-012 (Fair-Value Level) + H-013 (Volatility Timing) → 3-Filter-Stack später evaluieren.
+
+**Commits:**
+
+- `08c33a1` — H-012: OR Mid Shift (Value Area Bias) — Shadow Logging implementiert
+- `c341334` — H-013: Volatility Squeeze (TTM) Filter – Shadow Logging implementiert
+
+**Offene Punkte für nächste Session:**
+
+- Nach ~10–15 Trades: H-012 Validation-Checkpoint (sind aligned-Trades besser als random?)
+- Nach ~20–30 Trades: H-013 Validation-Checkpoint (profitieren Squeeze-Breakouts?)
+- Beides erfüllt → Multi-Filter-Gate-Implementierung evaluieren
+
+---
+
 ### Session 2026-04-16 (Abend) — H4-Filter scharf, Market-Structure-Analyse, OI/Externe Quellen-Bewertung
 
 **Thema:** Letzten Trade analysiert (ETH SHORT 09:55), H4-Alignment-Filter aktiviert, Market-Structure-Metriken erklärt und bewertet, externe Finanzquellen evaluiert.
