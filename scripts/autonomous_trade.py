@@ -29,6 +29,7 @@ try:
         BREAKOUT_THRESHOLD, LEVERAGE, SIZE_DECIMALS, DRAWDOWN_KILL_PCT,
         MIN_BOX_RANGE, MAX_BOX_AGE_MIN, MAX_BREAKOUT_DISTANCE_RATIO,
         H006_EMA_FILTER_ENABLED, H006_REQUIRE_H4_ALIGN,
+        H014_VOLUME_FILTER_ENABLED, H014_VOLUME_RATIO_MIN,
         MIN_BALANCE_USD, MAX_SL_DISTANCE_PCT, DAILY_DD_KILL_R,
     )
 except ImportError:
@@ -45,6 +46,8 @@ except ImportError:
     MAX_BREAKOUT_DISTANCE_RATIO = 2.0
     H006_EMA_FILTER_ENABLED = False
     H006_REQUIRE_H4_ALIGN = False
+    H014_VOLUME_FILTER_ENABLED = False
+    H014_VOLUME_RATIO_MIN = 1.0
     MIN_BALANCE_USD = 10.0
     MAX_SL_DISTANCE_PCT = 0.10
     DAILY_DD_KILL_R = -2.0
@@ -727,6 +730,19 @@ def scan_for_breakouts(client):
                         "close_position": round(close_position, 3),
                         "candle_close": candle_close,
                         "volume_ratio": round(volume_ratio, 3),
+                    })
+                    continue
+
+                # ── H-014 · Volume-Ratio-Filter ──
+                # Fail-safe: Nur blockieren wenn volume_avg_20 > 0 (echte Daten vorliegen).
+                if H014_VOLUME_FILTER_ENABLED and volume_avg_20 > 0 and volume_ratio < H014_VOLUME_RATIO_MIN:
+                    print(f"   ⏭️  {asset}: Schwaches Volumen (Vol {volume_ratio:.2f}x < {H014_VOLUME_RATIO_MIN:.2f}x) → Skip")
+                    log_skip("low_volume", asset, current_session, {
+                        "direction": direction,
+                        "volume_ratio": round(volume_ratio, 3),
+                        "threshold": H014_VOLUME_RATIO_MIN,
+                        "volume_at_breakout": round(volume_at_breakout, 3),
+                        "volume_avg_20": round(volume_avg_20, 3),
                     })
                     continue
         except Exception as e:

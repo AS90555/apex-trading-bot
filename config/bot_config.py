@@ -87,6 +87,13 @@ MAX_BREAKOUT_DISTANCE_RATIO = 2.0  # Max Breakout-Distanz als Vielfaches der Box
 H006_EMA_FILTER_ENABLED = True
 H006_REQUIRE_H4_ALIGN   = True   # True = zusätzlich 4H-EMA-50-Alignment erforderlich
 
+# H-014 · Volume-Ratio Filter (Skip bei schwachem Breakout-Volumen)
+# Datenbasis: 21 Trades mit volume_ratio. Vol<1.0: Avg −0.487R, WR 38% (n=8).
+# Vol≥1.0: Avg −0.208R, WR 46% (n=13). Filter hätte 8 Skip-Trades für +3.90R vermieden.
+# Fail-safe: Fehlt volume_ratio oder Candle-API fail → Trade läuft durch (kein Block).
+H014_VOLUME_FILTER_ENABLED = True
+H014_VOLUME_RATIO_MIN      = 1.0   # Mindest-Volume gegenüber 20er-Avg
+
 # WEEKEND MOMENTUM
 
 WEEKEND_ASSET = "AVAX"
