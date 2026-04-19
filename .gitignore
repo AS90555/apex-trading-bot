@@ -1,8 +1,7 @@
 # Claude Code (lokale Session-Daten, nicht ins Repo)
 .claude/
 
-# Lokale Hilfsdateien (nicht für Repo)
-CLAUDE.md
+# Lokale dev/test-Dateien (nicht für Repo)
 .BOT_IDENTITY
 test_api.py
 
