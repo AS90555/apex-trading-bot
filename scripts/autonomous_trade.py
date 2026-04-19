@@ -31,7 +31,7 @@ try:
         H006_EMA_FILTER_ENABLED, H006_REQUIRE_H4_ALIGN,
         H014_VOLUME_FILTER_ENABLED, H014_VOLUME_RATIO_MIN,
         H015_REGIME_RISK_MODIFIER_ENABLED,
-        MIN_BALANCE_USD, MAX_SL_DISTANCE_PCT, DAILY_DD_KILL_R,
+        MIN_BALANCE_USD, MAX_SL_DISTANCE_PCT, DAILY_DD_KILL_R, DAILY_DD_HALF_R,
     )
 except ImportError:
     DRY_RUN = True
@@ -50,6 +50,7 @@ except ImportError:
     H014_VOLUME_FILTER_ENABLED = False
     H014_VOLUME_RATIO_MIN = 1.0
     H015_REGIME_RISK_MODIFIER_ENABLED = False
+    DAILY_DD_HALF_R = -1.5
     MIN_BALANCE_USD = 10.0
     MAX_SL_DISTANCE_PCT = 0.10
     DAILY_DD_KILL_R = -2.0
@@ -591,6 +592,17 @@ def get_risk_usd(client):
             print(f"   ⚠️  Regime-Detect fehlgeschlagen: {e} — voller Risk-Basiswert")
             regime_snapshot = {"regime": "error", "risk_modifier": 1.0,
                                "go": True, "error": str(e)}
+    # H-016: Graduated Daily DD — Stufe 1 (daily_r <= HALF → Risk × 0.5)
+    # Stufe 2 (daily_r <= KILL) wird separat im Main-Flow abgefangen (bestehende Logik).
+    daily_r = load_daily_pnl().get("realized_r", 0.0)
+    dd_half_applied = False
+    if daily_r <= DAILY_DD_HALF_R:
+        risk_pct_effective *= 0.5
+        dd_half_applied = True
+        print(f"   ⚠️  Graduated-DD Stufe 1: {daily_r:.2f}R heute → Risk halbiert")
+    if regime_snapshot is not None:
+        regime_snapshot["dd_half_applied"] = dd_half_applied
+        regime_snapshot["daily_r"] = round(daily_r, 2)
     return base_capital * risk_pct_effective, base_capital, regime_snapshot
 
 

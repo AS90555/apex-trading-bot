@@ -20,9 +20,11 @@ DRAWDOWN_KILL_PCT = 0.50  # Kill-Switch: keine Trades wenn Balance < 50% von CAP
 MIN_BALANCE_USD = 10.0       # Keine Trades unter $10 Balance (Min-Order-Risiko)
 MAX_SL_DISTANCE_PCT = 0.10   # SL-Abstand > 10% vom Entry → implausibel, kein Trade
 
-# DAILY DRAWDOWN CIRCUIT BREAKER (Opt 2)
-DAILY_DD_KILL_R = -2.0       # Tages-R-Limit: bei <= -2R heute keine neuen Trades mehr
-                              # Auto-Reset um 00:00 Berlin (Datumswechsel)
+# DAILY DRAWDOWN CIRCUIT BREAKER — Graduated (IDEA-006)
+# Stufe 1: daily_r <= -1.5R → Risk × 0.5 (halbe Größe, Trade läuft noch)
+# Stufe 2: daily_r <= -2.0R → Kein neuer Trade heute (KILL)
+DAILY_DD_HALF_R  = -1.5      # H-016: Halbe Size ab diesem Tages-R
+DAILY_DD_KILL_R  = -2.0      # Kein Trade ab diesem Tages-R (Auto-Reset 00:00 Berlin)
 
 # HEBEL
 

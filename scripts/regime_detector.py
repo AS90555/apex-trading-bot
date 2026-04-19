@@ -125,6 +125,43 @@ def classify(btc_30d: float, btc_7d: float, atr_pct: float, fg: int | None) -> t
     return ("sideways", 0.5)
 
 
+STABILITY_BARS = 3  # H-005: Regime muss N-mal in Folge gleich sein bevor Wechsel akzeptiert
+
+
+def _apply_stability_filter(new_regime: str, new_mod: float, state: dict) -> tuple[str, float]:
+    """
+    IDEA-005 Stability Filter: Neues Regime muss STABILITY_BARS-mal in Folge
+    auftreten bevor es als aktuelles Regime gilt. Verhindert Whipsawing.
+    """
+    pending = state.get("pending_regime")
+    count = state.get("pending_count", 0)
+    confirmed = state.get("confirmed_regime")
+
+    if pending == new_regime:
+        count += 1
+    else:
+        pending = new_regime
+        count = 1
+
+    state["pending_regime"] = pending
+    state["pending_count"] = count
+
+    if count >= STABILITY_BARS:
+        # Neues Regime bestätigt
+        state["confirmed_regime"] = new_regime
+        state["confirmed_modifier"] = new_mod
+        return new_regime, new_mod
+
+    # Noch nicht stabil — altes bestätigtes Regime beibehalten
+    if confirmed:
+        old_mod = state.get("confirmed_modifier", new_mod)
+        return confirmed, old_mod
+    # Noch kein bestätigtes Regime (Erststart) → direkt übernehmen
+    state["confirmed_regime"] = new_regime
+    state["confirmed_modifier"] = new_mod
+    return new_regime, new_mod
+
+
 def detect(use_cache: bool = True) -> dict:
     if use_cache:
         cached = _load_cache()
@@ -144,22 +181,36 @@ def detect(use_cache: bool = True) -> dict:
     atr_pct = _calc_atr_pct(candles_4h, period=14)
     fg_data = _fetch_fear_and_greed()
     fg_val = fg_data.get("value") if fg_data else None
-    regime, risk_mod = classify(btc_30d, btc_7d, atr_pct, fg_val)
+    raw_regime, raw_mod = classify(btc_30d, btc_7d, atr_pct, fg_val)
+
+    # IDEA-005: Stability Filter — lade State, wende Filter an, speichere zurück
+    state = _load_cache() or {}
+    regime, risk_mod = _apply_stability_filter(raw_regime, raw_mod, state)
+    stability_info = (f"raw={raw_regime}" if regime != raw_regime
+                      else f"stabil ({state.get('pending_count',1)}/{STABILITY_BARS})")
+
     go = risk_mod > 0
     reason_parts = [f"BTC 30d {btc_30d:+.1f}%", f"7d {btc_7d:+.1f}%",
                     f"ATR% {atr_pct:.2f}"]
     if fg_val is not None:
         reason_parts.append(f"F&G {fg_val} ({fg_data.get('label', '?')})")
+    reason_parts.append(stability_info)
     result = {
         "regime": regime,
         "risk_modifier": risk_mod,
         "go": go,
+        "raw_regime": raw_regime,
         "btc_30d_pct": round(btc_30d, 2),
         "btc_7d_pct": round(btc_7d, 2),
         "atr_pct": round(atr_pct, 3),
         "fear_greed": fg_val,
         "fear_greed_label": fg_data.get("label") if fg_data else None,
         "reason": " | ".join(reason_parts),
+        # Stability-State für nächsten Call
+        "pending_regime": state.get("pending_regime"),
+        "pending_count": state.get("pending_count", 1),
+        "confirmed_regime": state.get("confirmed_regime"),
+        "confirmed_modifier": state.get("confirmed_modifier"),
     }
     _save_cache(result)
     return result
