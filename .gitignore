@@ -1,6 +1,11 @@
 # Claude Code (lokale Session-Daten, nicht ins Repo)
 .claude/
 
+# Lokale Hilfsdateien (nicht für Repo)
+CLAUDE.md
+.BOT_IDENTITY
+test_api.py
+
 # Runtime files
 *.pid
 cloudflared.pid

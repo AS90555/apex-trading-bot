@@ -62,7 +62,8 @@ BOXES_FILE = os.path.join(DATA_DIR, "opening_range_boxes.json")
 TRADES_FILE = os.path.join(DATA_DIR, "trades.json")
 LOCK_FILE = os.path.join(DATA_DIR, "autonomous_trade.lock")
 HWM_FILE = os.path.join(DATA_DIR, "high_water_mark.json")
-SKIP_LOG_FILE = os.path.join(DATA_DIR, "skip_log.jsonl")
+SKIP_LOG_FILE   = os.path.join(DATA_DIR, "skip_log.jsonl")
+H011_SHADOW_FILE = os.path.join(DATA_DIR, "hypothesis_shadow_log.jsonl")
 
 
 def log_skip(reason: str, asset: str = None, session: str = None, context: dict = None):
@@ -85,6 +86,35 @@ def log_skip(reason: str, asset: str = None, session: str = None, context: dict 
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
         print(f"⚠️  Skip-Log Schreibfehler: {e}")
+
+
+def log_h011_shadow(asset, direction, entry_price, stop_loss, trend_context: dict):
+    """H-011: ATR-Trail Shadow-Log — was would the trail look like if activated at 1R?"""
+    try:
+        atr = trend_context.get("atr_14", 0)
+        risk = abs(entry_price - stop_loss)
+        tp1_price = entry_price + risk if direction == "long" else entry_price - risk
+        trail_1x = atr * 1.0
+        trail_15x = atr * 1.5
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "hypothesis": "H-011",
+            "asset": asset,
+            "direction": direction,
+            "entry_price": round(entry_price, 6),
+            "stop_loss": round(stop_loss, 6),
+            "risk_per_unit": round(risk, 6),
+            "atr_14": round(atr, 6),
+            "atr_pct": round(atr / entry_price * 100, 4) if entry_price else None,
+            "tp1_activation_price": round(tp1_price, 6),
+            "would_trail_1x_atr": round(trail_1x, 6),
+            "would_trail_15x_atr": round(trail_15x, 6),
+            "trail_vs_risk_ratio": round(trail_1x / risk, 3) if risk else None,
+        }
+        with open(H011_SHADOW_FILE, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        print(f"⚠️  H-011 Shadow-Log Fehler: {e}")
 
 
 def load_boxes():
@@ -535,6 +565,9 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         # Meta
         "dry_run": DRY_RUN,
     })
+
+    # H-011: ATR-Trail Shadow-Log (was würde der Trail-Stop tun wenn er bei 1R aktiviert?)
+    log_h011_shadow(asset, direction, actual_entry, stop_loss, ctx.get("trend_context", {}))
 
     return {
         "success": True,
