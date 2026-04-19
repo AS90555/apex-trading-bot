@@ -131,6 +131,62 @@ apex-trading-bot/
 
 ## Architektur-Entscheidungen & Session-Log
 
+### Session 2026-04-19 — APEX Decision Engine: Phases B, D, E + IDEA-005/006 + BTC-Regime-Analyse
+
+**Thema:** Vollständige Implementierung der APEX Endless Session Routine — Regime-Detektor, Decay Monitor, Research Pipeline, Benchmark Tracker, Graduated Circuit Breaker, Regime Stability Filter. Abschluss des Plans "APEX Endless Session Routine + Decision Engine".
+
+**Analysen:**
+- **H-002 Entscheidung:** Option C gewählt — inconclusive, re-eval nach Phase B (kein Rollback, keine Änderung, neue Datenbasis mit Regime-Kontext abwarten).
+- **Regime-Detektor Konsistenz:** Erster Test zeigte bull_quiet trotz F&G=27 (Fear). Bug gefunden: BTC-Trend und F&G müssen übereinstimmen, sonst konservativ sideways → gefixt.
+- **YouTube HMM-Bot-Analyse:** IDEA-007 (HMM Regime Detection) eingetragen — langfristig wertvoll, Vorbedingungen: ≥60 eigene Trades, ≥1 vollständiger Regime-Zyklus. Kein Research bis Vorbedingungen erfüllt.
+- **IDEA-005 + IDEA-006 Analyse:** Stability Filter (3-Bar) vermeidet Regime-Whipsawing — direkt implementiert. Graduated DD (-1.5R half-size) mathematisch sauber — direkt implementiert.
+- **BTC-Regime für Altcoins:** Chain-of-Truth-Analyse bestätigt Mehrwert für Downside-Schutz (Beta 0.9–1.4 bei Crashs). Blindfleck: idiosynkratische Alt-Moves (XRP SEC, SOL Network). Bei n=22 statistisch nicht entscheidbar. IDEA-004 (Asset-Beta-Modifier) bei Balance >$200 sinnvoll.
+- **Model-Empfehlung:** /ASS → Sonnet (Komplex-Analyse), /asa → Sonnet (Report-Schreiben), /ASE → Haiku (Routine-Sync).
+
+**Implementierungen:**
+
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | `regime_detector.py` neu (~200 Zeilen) | `scripts/` | BTC 30d/7d + ATR% + F&G → regime + risk_modifier. Contradiction-Rule: Trend≠Sentiment → sideways |
+| 2 | Stability Filter `_apply_stability_filter()` | `regime_detector.py` | H-017: 3×bestätigtes Regime vor Wechsel — verhindert Whipsawing |
+| 3 | Cache TTL 1h, atomarer Write | `regime_detector.py` | Regime ändert sich langsam; File-Korruptions-Schutz |
+| 4 | `decay_monitor.py` neu (~170 Zeilen) | `scripts/` | Baseline-vs-Rolling-30d, Bootstrap Permutation p-Value, Alert bei p<0.05 + Degradation |
+| 5 | `strategy_snapshot.py` neu (~140 Zeilen) | `scripts/` | Monatlicher Config-Snapshot nach `memory/snapshots/config_YYYY-MM.md` |
+| 6 | `benchmark_tracker.py` neu (~200 Zeilen) | `scripts/` | APEX vs. BTC Hodl vs. Random Entry — weekly_audit.py integriert |
+| 7 | `get_risk_usd()` erweitert | `autonomous_trade.py` | H-015: regime_risk_modifier × MAX_RISK_PCT. H-016: daily_r ≤ -1.5R → ×0.5 |
+| 8 | Regime NO-TRADE Gate | `autonomous_trade.py` | regime.go=False → kein Trade, Telegram-Alert |
+| 9 | `H015_REGIME_RISK_MODIFIER_ENABLED = True` | `config/bot_config.py` | H-015 scharf geschaltet |
+| 10 | `DAILY_DD_HALF_R = -1.5`, `DAILY_DD_KILL_R = -2.0` | `config/bot_config.py` | H-016 Graduated DD Stufen |
+| 11 | `/ASS.md` Schritt 0 erweitert (0a Selftest, 0b Status, 0c Regime) | `/root/.claude/commands/` | Regime-Snapshot bei Session-Start Pflicht |
+| 12 | `/ASS.md` Session-Type-Module (6.5) | `/root/.claude/commands/` | Montag/Monats-Erste/Post-Loss/Post-Win Differenzierung |
+| 13 | `research_pipeline.md` neu | `memory/` | 4-Stufen-Trichter IDEA→RESEARCH→SHADOW→LIVE, IDEA-001–007 |
+| 14 | `parked_kelly_sizing.md` neu | `memory/` | Phase C geparkt, Aktivierung bei Balance >$100 + ≥1 verified Hypothese |
+| 15 | `MEMORY.md` aktualisiert | `memory/` | research_pipeline + parked_kelly_sizing eingetragen |
+
+**Hypothesen-Updates:**
+- **H-002:** `inconclusive / re-eval nach Phase B` (kein Rollback)
+- **H-015** (NEU): `live / validating` — Regime Risk-Modifier, seit 2026-04-19, Commit b652ce1
+- **H-016** (NEU): `live / validating` — Graduated DD Half-Size, seit 2026-04-19, Commit b652ce1
+- **H-017** (NEU): `live / validating` — Regime Stability Filter 3-Bar, seit 2026-04-19, Commit b652ce1
+
+**Commits:**
+- `67cb85d` — Phase B+D+E: Regime-Detector, Decay Monitor, Benchmark Tracker, Research Pipeline
+- `b652ce1` — H-016 + H-017: Graduated DD Circuit Breaker + Regime Stability Filter
+
+**Benchmark-Stand (2026-04-19, n=22):**
+- APEX: −5.47R, ~−$7.42, WR 41%
+- BTC Hodl: +$7.32 (+10.7%) → APEX schlechter (BTC erholt)
+- Random Entry: +4.21R, +$5.75 → APEX schlechter als Zufall ❌
+- Interpretation: H-006 (EMA) einziger statistisch signifikanter positiver Faktor. Filter-Attribution + Phase A Arbeit notwendig.
+
+**Offene Punkte:**
+- H-002 re-eval wenn ≥10 neue Trades mit Regime-Kontext geloggt
+- IDEA-004 (Asset-Beta-Modifier) bei Balance >$200 evaluieren
+- Decay Monitor in /asa PHASE 3.6 monatlich integrieren
+- Regime-Telegram-Alert bei Wechsel (noch offen)
+
+---
+
 ### Session 2026-04-18 — Two New Shadow-Logging Filters: OR-Mid Shift (H-012) + Volatility Squeeze (H-013)
 
 **Thema:** User stellte zwei neue institutionelle ORB-Filter vor. Beide implementiert als Shadow-Logging (kein Block, nur Datensammlung für spätere EV-Analyse).
