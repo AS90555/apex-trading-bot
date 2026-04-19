@@ -30,6 +30,7 @@ try:
         MIN_BOX_RANGE, MAX_BOX_AGE_MIN, MAX_BREAKOUT_DISTANCE_RATIO,
         H006_EMA_FILTER_ENABLED, H006_REQUIRE_H4_ALIGN,
         H014_VOLUME_FILTER_ENABLED, H014_VOLUME_RATIO_MIN,
+        H015_REGIME_RISK_MODIFIER_ENABLED,
         MIN_BALANCE_USD, MAX_SL_DISTANCE_PCT, DAILY_DD_KILL_R,
     )
 except ImportError:
@@ -48,6 +49,7 @@ except ImportError:
     H006_REQUIRE_H4_ALIGN = False
     H014_VOLUME_FILTER_ENABLED = False
     H014_VOLUME_RATIO_MIN = 1.0
+    H015_REGIME_RISK_MODIFIER_ENABLED = False
     MIN_BALANCE_USD = 10.0
     MAX_SL_DISTANCE_PCT = 0.10
     DAILY_DD_KILL_R = -2.0
@@ -246,7 +248,7 @@ def round_size(asset, size):
     return round(size, decimals)
 
 
-def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_low, risk_usd=None, context=None):
+def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_low, risk_usd=None, context=None, regime_snapshot=None):
     """
     Platziere Breakout Trade mit Stop-Loss und Take-Profit.
     Returns: dict mit Trade-Ergebnis
@@ -527,6 +529,8 @@ def execute_breakout_trade(client, asset, direction, entry_price, box_high, box_
         "market_structure": market_structure,
         # Fear & Greed Index (alternative.me, Tageswert, nur Logging)
         "fear_greed": fear_greed,
+        # H-015: Regime-Snapshot (Klasse, Modifier, Begründung) — scharfes Sizing
+        "regime_snapshot": regime_snapshot,
         # Meta
         "dry_run": DRY_RUN,
     })
@@ -568,12 +572,26 @@ def update_and_get_hwm(balance: float) -> float:
 
 
 def get_risk_usd(client):
-    """Hole live Balance und berechne Max-Risk in USD"""
+    """Hole live Balance, berechne Max-Risk (inkl. Regime-Modifier H-015).
+
+    Returns: (risk_usd, balance, regime_snapshot)
+      - regime_snapshot: dict mit regime/risk_modifier/go/reason oder None wenn disabled
+    """
     balance = client.get_balance()
-    if balance and balance > 0:
-        return balance * MAX_RISK_PCT, balance
-    # Fallback auf Config-Wert falls API-Fehler
-    return CAPITAL * MAX_RISK_PCT, CAPITAL
+    base_capital = balance if balance and balance > 0 else CAPITAL
+    risk_pct_effective = MAX_RISK_PCT
+    regime_snapshot = None
+    if H015_REGIME_RISK_MODIFIER_ENABLED:
+        try:
+            from regime_detector import detect
+            regime_snapshot = detect(use_cache=True)
+            mod = float(regime_snapshot.get("risk_modifier", 1.0))
+            risk_pct_effective = MAX_RISK_PCT * mod
+        except Exception as e:
+            print(f"   ⚠️  Regime-Detect fehlgeschlagen: {e} — voller Risk-Basiswert")
+            regime_snapshot = {"regime": "error", "risk_modifier": 1.0,
+                               "go": True, "error": str(e)}
+    return base_capital * risk_pct_effective, base_capital, regime_snapshot
 
 
 def scan_for_breakouts(client):
@@ -1085,9 +1103,28 @@ def main(scan_only: bool = False):
         print(f"   Box:   ${breakout['box_low']:,.4f} – ${breakout['box_high']:,.4f}")
         print(f"   Distanz: ${breakout['breakout_distance']:,.4f}")
 
-        # Live Balance für Risk-Berechnung holen
-        risk_usd, balance = get_risk_usd(client)
-        print(f"\n💰 Balance: ${balance:.2f} USDT | Risk/Trade: ${risk_usd:.2f}")
+        # Live Balance für Risk-Berechnung holen (inkl. Regime-Modifier H-015)
+        risk_usd, balance, regime_snapshot = get_risk_usd(client)
+        if regime_snapshot:
+            print(f"\n🌡️  Regime: {regime_snapshot.get('regime')} "
+                  f"(mod {regime_snapshot.get('risk_modifier', 1.0):.2f}) — "
+                  f"{regime_snapshot.get('reason', '')}")
+        print(f"💰 Balance: ${balance:.2f} USDT | Risk/Trade: ${risk_usd:.2f}")
+
+        # H-015: Regime-NO-TRADE-Gate (crash / risk_modifier=0)
+        if regime_snapshot and not regime_snapshot.get("go", True):
+            msg = (f"Regime-Gate greift: {regime_snapshot.get('regime')}. "
+                   f"{regime_snapshot.get('reason', '')}. Keine neuen Trades heute.")
+            print(f"\n🛑 REGIME NO-TRADE: {regime_snapshot.get('regime')}")
+            log_skip("regime_no_trade", breakout["asset"], session, {
+                "regime": regime_snapshot.get("regime"),
+                "risk_modifier": regime_snapshot.get("risk_modifier"),
+                "reason": regime_snapshot.get("reason"),
+            })
+            if not scan_only:
+                send_telegram_message(msg)
+            print("NO_REPLY")
+            return
 
         # Kill-Switch: 50% Drawdown vom High-Water-Mark → keine neuen Trades
         hwm = update_and_get_hwm(balance)
@@ -1143,6 +1180,7 @@ def main(scan_only: bool = False):
             breakout["box_low"],
             risk_usd,
             context=breakout,
+            regime_snapshot=regime_snapshot,
         )
 
         dry_tag = " [DRY]" if DRY_RUN else ""

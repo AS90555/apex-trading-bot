@@ -160,6 +160,20 @@ def render_report(since: datetime, until: datetime, agg: dict, trades_summary: d
             lines.append(f"| {a} | {n} |")
         lines.append("")
 
+    # Benchmark Tracker Block
+    lines.append("## Benchmark-Vergleich (All-Time)")
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(__file__).rsplit("/", 1)[0])
+        from benchmark_tracker import run as _bt_run, render as _bt_render
+        _apex, _hodl, _rand = _bt_run(use_api=False)
+        lines.append("```")
+        lines.append(_bt_render(_apex, _hodl, _rand))
+        lines.append("```")
+    except Exception as _e:
+        lines.append(f"*(Benchmark-Tracker Fehler: {_e})*")
+    lines.append("")
+
     # Actionable Findings
     lines.append("## Auffälligkeiten")
     findings = []

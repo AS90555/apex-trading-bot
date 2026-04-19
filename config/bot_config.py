@@ -94,6 +94,12 @@ H006_REQUIRE_H4_ALIGN   = True   # True = zusätzlich 4H-EMA-50-Alignment erford
 H014_VOLUME_FILTER_ENABLED = True
 H014_VOLUME_RATIO_MIN      = 1.0   # Mindest-Volume gegenüber 20er-Avg
 
+# H-015 · Regime-basierter Risk-Modifier (Phase B.1)
+# regime_detector.py liefert risk_modifier in [0.0, 1.0]. Effektiver Risk% pro Trade
+# = MAX_RISK_PCT × risk_modifier. Bei regime="crash" (risk_modifier=0) → NO-TRADE.
+# Fail-safe: Regime-Detect-Fehler → Modifier=1.0 (voll), Trade läuft durch.
+H015_REGIME_RISK_MODIFIER_ENABLED = True
+
 # WEEKEND MOMENTUM
 
 WEEKEND_ASSET = "AVAX"
