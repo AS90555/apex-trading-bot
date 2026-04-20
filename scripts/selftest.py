@@ -352,6 +352,39 @@ def test_weekly_audit_render():
     record("weekly_audit_render", ok, f"agg={agg['total']}, winrate={ts['winrate']}%")
 
 
+def test_data_quality_check():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "data_quality", str(PROJECT_DIR / "scripts" / "data_quality.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # CRITICAL: exit_pnl_r fehlt
+    bad = [{"asset": "ETH", "direction": "long", "session": "eu",
+            "timestamp": "2026-04-13T10:00:00", "exit_timestamp": "2026-04-13T11:00:00",
+            "exit_pnl_r": None, "exit_pnl_usd": None,
+            "body_ratio": 0.8, "volume_ratio": 1.2,
+            "trend_context": {"ema_aligned": True, "h4_aligned": True}}]
+    r_bad = mod.check_trades(bad)
+
+    # OK: vollständiger Trade
+    good = [{"asset": "XRP", "direction": "long", "session": "tokyo",
+             "timestamp": "2026-04-17T09:00:00", "exit_timestamp": "2026-04-17T11:00:00",
+             "exit_pnl_r": 0.56, "exit_pnl_usd": 0.66,
+             "body_ratio": 0.81, "volume_ratio": 1.4,
+             "trend_context": {"ema_aligned": True, "h4_aligned": True}}]
+    r_good = mod.check_trades(good)
+
+    ok = (
+        r_bad.score == "CRITICAL"
+        and r_good.score == "OK"
+        and len(r_bad.critical) >= 1
+        and len(r_good.critical) == 0
+    )
+    record("data_quality_check", ok,
+           f"bad=CRITICAL({len(r_bad.critical)}errors) / good={r_good.score}")
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -367,6 +400,7 @@ def main() -> int:
         test_daily_pnl_tracker,
         test_daily_dd_breaker,
         test_weekly_audit_render,
+        test_data_quality_check,
     ]
     for t in tests:
         try:
