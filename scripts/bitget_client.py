@@ -238,18 +238,25 @@ class BitgetClient:
         item = items[0]
         return float(item.get("markPrice") or item.get("lastPr") or 0)
 
-    def get_candles(self, coin: str, interval: str = "15m", limit: int = 100) -> List[Dict]:
+    def get_candles(self, coin: str, interval: str = "15m", limit: int = 100,
+                    start_time: int = None, end_time: int = None) -> List[Dict]:
         """
         OHLCV Kerzen – sortiert älteste zuerst.
         Intervals: 1m, 5m, 15m, 1h, 4h, 1d
+        start_time/end_time: optionale ms-Timestamps für historische Abfragen.
         """
         bg_interval = INTERVAL_MAP.get(interval, interval)
-        data = self._get("/api/v2/mix/market/candles", {
+        params = {
             "symbol": self._symbol(coin),
             "productType": PRODUCT_TYPE,
             "granularity": bg_interval,
             "limit": str(limit),
-        })
+        }
+        if start_time is not None:
+            params["startTime"] = str(int(start_time))
+        if end_time is not None:
+            params["endTime"] = str(int(end_time))
+        data = self._get("/api/v2/mix/market/candles", params)
 
         candles = []
         for c in (data if isinstance(data, list) else []):

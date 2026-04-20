@@ -758,6 +758,9 @@ def scan_for_breakouts(client):
                 "breakout_dist": round(breakout_dist, 6),
                 "box_range": round(box_range, 6),
                 "ratio": round(breakout_dist / box_range, 3) if box_range else None,
+                "box_high": box["high"],
+                "box_low": box["low"],
+                "entry_price": current_price,
             })
             continue
 
@@ -823,6 +826,9 @@ def scan_for_breakouts(client):
                         "close_position": round(close_position, 3),
                         "candle_close": candle_close,
                         "volume_ratio": round(volume_ratio, 3),
+                        "box_high": box["high"],
+                        "box_low": box["low"],
+                        "entry_price": current_price,
                     })
                     continue
 
@@ -836,6 +842,9 @@ def scan_for_breakouts(client):
                         "threshold": H014_VOLUME_RATIO_MIN,
                         "volume_at_breakout": round(volume_at_breakout, 3),
                         "volume_avg_20": round(volume_avg_20, 3),
+                        "box_high": box["high"],
+                        "box_low": box["low"],
+                        "entry_price": current_price,
                     })
                     continue
         except Exception as e:
@@ -947,6 +956,8 @@ def scan_for_breakouts(client):
                     "trend_direction": trend_context.get("trend_direction"),
                     "ema_200": ema_200,
                     "entry_price": current_price,
+                    "box_high": box["high"],
+                    "box_low": box["low"],
                 })
                 continue
             # Optional: zusätzlich 4H-Alignment fordern
@@ -961,6 +972,8 @@ def scan_for_breakouts(client):
                         "h4_trend_direction": trend_context.get("h4_trend_direction"),
                         "h4_ema_50": h4_ema,
                         "entry_price": current_price,
+                        "box_high": box["high"],
+                        "box_low": box["low"],
                     })
                     continue
 
