@@ -117,6 +117,36 @@ def log_h011_shadow(asset, direction, entry_price, stop_loss, trend_context: dic
         print(f"⚠️  H-011 Shadow-Log Fehler: {e}")
 
 
+def log_h012_h013_shadow(asset, session, direction, current_price,
+                          trend_context: dict, or_bias: str, bias_aligned: bool,
+                          box_mid: float, prev_mid):
+    """H-012 + H-013: Shadow-Log für JEDEN Breakout-Kandidaten (inkl. gefilterter Trades).
+
+    Wird VOR den Filtern (H-006/H-009/H-014) aufgerufen damit auch geblockte Signale erfasst werden.
+    Später Join mit skip_log.jsonl oder trades.json über (asset, timestamp).
+    """
+    try:
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "asset": asset,
+            "session": session,
+            "direction": direction,
+            "current_price": round(current_price, 6),
+            "h013_is_squeezing": trend_context.get("is_squeezing", None),
+            "h013_atr_ratio": trend_context.get("atr_ratio", None),
+            "h012_or_bias": or_bias,
+            "h012_bias_aligned": bias_aligned,
+            "h012_box_mid": round(box_mid, 6) if box_mid is not None else None,
+            "h012_prev_mid": round(prev_mid, 6) if prev_mid is not None else None,
+            "ema_aligned": trend_context.get("ema_aligned", None),
+            "h4_aligned": trend_context.get("h4_aligned", None),
+        }
+        with open(H011_SHADOW_FILE, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        print(f"⚠️  H-012/H-013 Shadow-Log Fehler: {e}")
+
+
 def load_boxes():
     if not os.path.exists(BOXES_FILE):
         return {}
@@ -888,6 +918,19 @@ def scan_for_breakouts(client):
         except Exception as e:
             print(f"   ⚠️  {asset}: EMA/ATR-Berechnung fehlgeschlagen ({e})")
 
+        # H-012: OR Mid Shift – VOR Filtern berechnen damit Shadow-Log auch geblockte Signale erfasst
+        box_mid = (box["high"] + box["low"]) / 2.0
+        prev_mid = box.get("prev_mid")  # Wird in save_opening_range.py berechnet
+        or_bias = "neutral"
+        bias_aligned = False
+        if prev_mid is not None and prev_mid > 0:
+            or_bias = "long" if box_mid > prev_mid else "short"
+            bias_aligned = (direction == or_bias)
+
+        # H-012 + H-013 Shadow-Log: jeden Breakout-Kandidaten erfassen (inkl. später gefilterter)
+        log_h012_h013_shadow(asset, current_session, direction, current_price,
+                              trend_context, or_bias, bias_aligned, box_mid, prev_mid)
+
         # H-006: EMA-200 Alignment Filter (kugelsicher)
         # Skip NUR wenn: Filter aktiv UND EMA-Daten valide UND Richtung gegen Trend.
         # Fail-safe: fehlende/invalide EMA-Daten → Trade läuft durch (wie vor dem Filter).
@@ -920,16 +963,6 @@ def scan_for_breakouts(client):
                         "entry_price": current_price,
                     })
                     continue
-
-        # H-012: OR Mid Shift (Value Area Bias) – Session-to-Session Price-Action Filter
-        # Vergleiche die Mitte der aktuellen Box mit der Mitte der vorherigen Session
-        box_mid = (box["high"] + box["low"]) / 2.0
-        prev_mid = box.get("prev_mid")  # Wird in save_opening_range.py berechnet
-        or_bias = "neutral"
-        bias_aligned = False
-        if prev_mid is not None and prev_mid > 0:
-            or_bias = "long" if box_mid > prev_mid else "short"
-            bias_aligned = (direction == or_bias)  # Trade stimmt mit Bias überein?
 
         return {
             "asset": asset,
