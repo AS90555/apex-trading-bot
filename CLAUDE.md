@@ -137,6 +137,27 @@ KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe dur
 
 ## 📅 Session-Log (neueste zuerst)
 
+### 2026-04-24 — Drei Lab-Runs: PLS, SSR, FRF (alle NO-GO)
+
+**Was wurde umgesetzt:**
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | PLS Scout gebaut + analysiert | `scripts/backtest/pls_scout.py` | Wick-Filter selektiert echte Setups, WR=29% reicht nicht für TP=3R |
+| 2 | SSR Scout gebaut + analysiert (BTC/ETH + SOL/AVAX) | `scripts/backtest/ssr_scout.py` | BTC/ETH Regime-Drift; SOL/AVAX vor Fees positiv, 4× Taker-Fees vernichten Edge |
+| 3 | FRF Daten-Audit (kein Scout nötig) | `data/funding/` | Bitget Funding-Cap ±0.01% < Taker-Fees 0.12% — strukturell unmöglich |
+| 4 | Anti-Patterns: PLS + SSR + FRF eingetragen | `memory/anti_patterns.md` | Wiederholfehler verhindern |
+| 5 | Knowledge Base: Bitget-Derivate-Schranken | `memory/knowledge_base.md` | Funding-Cap + Pairs-Trading-Fees als Factory-Regel dokumentiert |
+
+**Kern-Erkenntnisse:**
+- PLS: Bimodale R-Verteilung beweist funktionierendes Entry — WR-Problem, kein Mechanik-Problem
+- SSR: Pairs Trading auf Bitget strukturell durch Taker-Fees disqualifiziert (4× pro Runde)
+- FRF: Bitget-Funding-Cap ±0.01% macht alle Funding-Strategien mathematisch negativ
+- Factory-Regel etabliert: Avg Win > 1.5R Mindestanforderung für Bitget-kompatible Strategien
+- P-Hacking konsequent abgelehnt (PLS post-hoc Asset-Filter, SOL/AVAX Quick-Fix)
+
+**Hypothesen:** keine neuen H-IDs (alle drei als NO-GO dokumentiert)
+**Commits:** `16fea34` (PLS + SSR + FRF Scouts + Memory-Updates)
+
 ### 2026-04-24 — KDT Deploy + Telegram-Upgrade + ZVA Lab (NO-GO)
 
 **Was wurde umgesetzt:**
