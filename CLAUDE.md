@@ -137,6 +137,27 @@ KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe dur
 
 ## 📅 Session-Log (neueste zuerst)
 
+### 2026-04-24 — KDT Deploy + Telegram-Upgrade + ZVA Lab (NO-GO)
+
+**Was wurde umgesetzt:**
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | KDT Config-Block + Cron + erster Dry-Run | `config/bot_config.py`, Crontab | KDT-Migration aus Phase 0-5 abschließen |
+| 2 | Standardisiertes Event-Tagging | `scripts/telegram_sender.py` | `format_event_tag()` für alle Bots einheitlich |
+| 3 | Tags in KDT + VAA Nachrichten | `scripts/kdt_bot.py`, `scripts/vaa_bot.py` | SIGNAL/ENTRY mit Bot-Name + Timestamp |
+| 4 | Daily Hedge Fund Briefing | `scripts/daily_briefing.py` | Multi-Bot-Überblick täglich 07:00 UTC |
+| 5 | ZVA Scout 1H gebaut + analysiert | `scripts/backtest/zva_scout.py` | /Lab + /Build LONG-only: n=10, +0.826R, p=0.22 |
+| 6 | ZVA Scout auf 15m portiert + analysiert | `scripts/backtest/zva_scout.py` | Weg A: n=51, −0.749R — Signal-Frequency-Paradoxon |
+| 7 | ZVA NO-GO dokumentiert | `memory/anti_patterns.md`, `memory/knowledge_base.md` | Erkenntnisse sichern, Wiederholung verhindern |
+
+**Kern-Erkenntnisse dieser Session:**
+- KDT Forward-Testing läuft (DRY RUN, stündlich, 0/10 Signale)
+- Telegram: alle Bots mit einheitlichem `[ APEX · BOT · EVENT · HH:MM ]` Tag
+- ZVA-Diagnose: SHORT-Pullbacks in Krypto = Anti-Pattern (Kaskaden/V-Shapes). LONG-1H hat Edge-Andeutung (+0.826R) aber zu selten. 15m zerstört Edge (Rauschen).
+
+**Hypothesen:** KDT (H-200ff implizit via Forward-Test), ZVA endgültig geschlossen
+**Commits:** `6c6a546` (KDT Deploy), `7f2e44e` (Telegram-Upgrade)
+
 ### 2026-04-24 — KDT Bot deployed (DRY RUN, Forward-Testing)
 
 **KDT (Kinetic Deceleration Trap) — ETH SHORT-only, 1H:**
