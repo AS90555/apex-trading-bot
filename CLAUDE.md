@@ -137,6 +137,27 @@ KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe dur
 
 ## 📅 Session-Log (neueste zuerst)
 
+### 2026-04-24 — Zwei Lab-Runs: VEB, ATR-Rider (beide NO-GO) + Chandelier-Exit als Wiederverwendungskomponente
+
+**Was wurde umgesetzt:**
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | VEB Scout gebaut + analysiert (5 Bars) | `scripts/backtest/veb_scout.py` | TTM-Squeeze: bimodale R-Verteilung, WR=31% — reicht nicht für TP=3R |
+| 2 | VEB 3-Bar-Variante getestet | `scripts/backtest/veb_scout.py` | Ökonomisch begründet: kürzere Squeezes = weniger Algo-Hunting; WR verschlechtert sich weiter |
+| 3 | ATR-Rider Scout gebaut + analysiert (48H) | `scripts/backtest/atr_rider_scout.py` | Donchian-Entry + Chandelier Trailing Stop; WR=31%, Donchian zu viele Fakeouts |
+| 4 | ATR-Rider 96H-Variante getestet | `scripts/backtest/atr_rider_scout.py` | Ökonomisch begründet: 4-Tages-Hochs = komplette Liquiditätszyklen; keine Verbesserung |
+| 5 | Anti-Patterns: VEB + ATR-Rider eingetragen | `memory/anti_patterns.md` | Wiederholfehler verhindern, Chandelier-Exit als Reuse dokumentiert |
+| 6 | Knowledge Base: Breakout-WR-Ceiling | `memory/knowledge_base.md` | Krypto-1H Breakouts strukturell ~30% WR — Chandelier-Exit als bester Exit dokumentiert |
+| 7 | Git-Commit | `b0a423f` | VEB + ATR-Rider scouts archiviert |
+
+**Kern-Erkenntnisse:**
+- Krypto-1H-Breakouts (Donchian oder Squeeze) scheitern systematisch an WR~30% — strukturelle Liquidations-Fallen
+- Chandelier Trailing Stop (2.5×ATR, nie sinkend) = bester Exit-Mechanismus der Factory (max +13.3R gesehen)
+- Nächstes Lab: Chandelier-Exit mit selektivem Entry (VAA-Filter-Idee oder EMA-Crossover) → WR ≥ 40% benötigt
+
+**Hypothesen:** keine neuen H-IDs (beide als NO-GO dokumentiert)
+**Commits:** `b0a423f` (VEB + ATR-Rider Scouts)
+
 ### 2026-04-24 — Drei Lab-Runs: PLS, SSR, FRF (alle NO-GO)
 
 **Was wurde umgesetzt:**
