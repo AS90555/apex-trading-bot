@@ -105,6 +105,7 @@ Keine Strategie geht live ohne alle Gates. Kein Code vor `/Lab`-Freigabe.
 | ORB | `autonomous_trade.py` | 🟢 Live | LIVE (DRY_RUN=False) |
 | VAA | `vaa_bot.py` | 🟢 Live | DRY RUN (VAA_DRY_RUN=True) |
 | KDT | `kdt_bot.py` | 🟡 Shadow | DRY RUN (KDT_DRY_RUN=True), Forward-Testing |
+| BRIEFING | `daily_briefing.py` | 🟢 Aktiv | täglich 07:00 UTC — Multi-Bot Hedge Fund Brief |
 
 VAA geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe durch Andre.
 KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe durch Andre. Finale Validierung (DSR + Bootstrap) nach n≥30 Live-Signalen.

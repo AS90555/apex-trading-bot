@@ -7,6 +7,7 @@ Sendet Nachrichten direkt an Telegram ohne Agent.
 
 import os
 import requests
+from datetime import datetime, timezone
 from pathlib import Path
 
 def load_telegram_config():
@@ -67,6 +68,38 @@ def send_telegram_message(message: str, parse_mode: str = None) -> bool:
     except Exception as e:
         print(f"⚠️  Telegram send error: {e}")
         return False
+
+# ─── Event-Tagging ────────────────────────────────────────────────────────────
+# Standardisiertes Header-Format für alle Bot-Nachrichten.
+# Verwendung in Bots:
+#   from scripts.telegram_sender import format_event_tag, send_telegram_message
+#   header = format_event_tag("KDT", "SIGNAL", "ETH")
+#   send_telegram_message(f"{header}\n{body}")
+
+EVENT_ICONS = {
+    "SIGNAL": "🔔",
+    "ENTRY":  "🔴",
+    "EXIT":   "🟢",
+    "ERROR":  "⚠️",
+    "INFO":   "ℹ️",
+}
+
+def format_event_tag(bot: str, event: str, asset: str = "", dry_run: bool = False) -> str:
+    """
+    Gibt einen standardisierten Einzeiler zurück:
+      🔔 [ APEX · KDT · SIGNAL · ETH · 06:00 UTC ]  [DRY]
+    """
+    ts    = datetime.now(timezone.utc).strftime("%H:%M UTC")
+    icon  = EVENT_ICONS.get(event.upper(), "•")
+    parts = ["APEX", bot.upper(), event.upper()]
+    if asset:
+        parts.append(asset)
+    parts.append(ts)
+    tag = f"{icon} [ {' · '.join(parts)} ]"
+    if dry_run:
+        tag += "  [DRY]"
+    return tag
+
 
 if __name__ == "__main__":
     # Test

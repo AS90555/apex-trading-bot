@@ -35,7 +35,7 @@ from config.bot_config import (
     LEVERAGE, SIZE_DECIMALS, DATA_DIR,
 )
 from scripts.bitget_client import BitgetClient
-from scripts.telegram_sender import send_telegram_message
+from scripts.telegram_sender import send_telegram_message, format_event_tag
 
 PENDING_FILE = os.path.join(DATA_DIR, "kdt_pending.json")
 TRADES_FILE  = os.path.join(DATA_DIR, "kdt_trades.json")
@@ -259,7 +259,7 @@ def execute_short(client: BitgetClient, signal: dict, current_price: float) -> b
     save_trade(trade)
 
     msg = (
-        f"{'🔴 [DRY RUN] ' if KDT_DRY_RUN else '🔴 '}"
+        f"{format_event_tag('KDT', 'ENTRY', 'ETH', KDT_DRY_RUN)}\n"
         f"KDT SHORT: #ETH\n"
         f"Entry : ${entry:,.2f}\n"
         f"SL    : ${sl:,.2f}  (+{(sl/entry-1)*100:.2f}%)\n"
@@ -355,7 +355,7 @@ def main():
                       f"ATR={sig['atr14']:.2f}  Gültig {KDT_ENTRY_WINDOW}h")
 
                 alert = (
-                    f"{'🔔 [DRY RUN] ' if KDT_DRY_RUN else '🔔 '}"
+                    f"{format_event_tag('KDT', 'SIGNAL', 'ETH', KDT_DRY_RUN)}\n"
                     f"KDT Signal: #ETH SHORT\n"
                     f"3 grüne Kerzen erschöpft — kinetische Bremsung\n"
                     f"Sell-Stop : ${sig['stop_price']:,.2f} (Candle-Low)\n"
