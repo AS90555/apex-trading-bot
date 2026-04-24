@@ -134,6 +134,25 @@ VAA_CANDLE_LIMIT    = 120        # 1H-Candles für Indikator-Berechnung (5 Tage 
 # Risiko: gleiche 2% wie ORB, aber separater Daily-DD-Zähler
 VAA_MAX_RISK_PCT = 0.02
 
+# ─── KDT STRATEGIE (Kinetic Deceleration Trap) ────────────────────────────────
+# Validierungsstand: Phase 4+5, 4/6 Hard-Gates (DSR + Bootstrap offen wegen n=17)
+# IS  : n=17  AvgR=+0.450R  WR=41%  PF=1.64  (2025-04-21→2026-02-10)
+# OOS : n=4   AvgR=+0.824R  WR=50%  PF=2.48  (2026-02-11→2026-04-19)
+# → Forward-Testing bis n≥30 Live-Signale für finale Validierung
+# → ETH SHORT-only: kinetische Erschöpfung nach 3 grünen Kerzen über EMA(50)
+
+KDT_ENABLED      = True          # False = KDT-Bot deaktiviert
+KDT_DRY_RUN      = True          # Start: DRY RUN — live erst nach n≥10 Signalen ohne Anomalie
+KDT_ASSET        = "ETH"         # Phase-3-KEEP: einziges Asset das alle Kriterien erfüllt
+
+KDT_EMA_PERIOD   = 50            # Phase-1-Gewinner: EMA(50) als Trend-Kontext
+KDT_ENTRY_WINDOW = 2             # Sell-Stop gültig für N Stunden nach Signal
+KDT_TP_R         = 3.0           # Take-Profit in R (Phase-1-Gewinner)
+KDT_SL_ATR_MULT  = 1.0           # F-04 Tight-SL: SL-Distanz < k × ATR(14)
+
+KDT_CANDLE_LIMIT = 120           # 1H-Candles für Indikator-Berechnung (≥55 für EMA(50)-Warmup)
+KDT_MAX_RISK_PCT = 0.02          # 2% Risiko pro Trade (separater DD-Zähler)
+
 # PFADE
 
 import os

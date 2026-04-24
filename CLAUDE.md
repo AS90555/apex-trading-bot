@@ -104,8 +104,10 @@ Keine Strategie geht live ohne alle Gates. Kein Code vor `/Lab`-Freigabe.
 |-----|--------|--------|-------|
 | ORB | `autonomous_trade.py` | 🟢 Live | LIVE (DRY_RUN=False) |
 | VAA | `vaa_bot.py` | 🟢 Live | DRY RUN (VAA_DRY_RUN=True) |
+| KDT | `kdt_bot.py` | 🟡 Shadow | DRY RUN (KDT_DRY_RUN=True), Forward-Testing |
 
 VAA geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe durch Andre.
+KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe durch Andre. Finale Validierung (DSR + Bootstrap) nach n≥30 Live-Signalen.
 
 ---
 
@@ -133,6 +135,16 @@ VAA geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe dur
 ---
 
 ## 📅 Session-Log (neueste zuerst)
+
+### 2026-04-24 — KDT Bot deployed (DRY RUN, Forward-Testing)
+
+**KDT (Kinetic Deceleration Trap) — ETH SHORT-only, 1H:**
+- Phase 0-5 durchlaufen: 4/6 Hard-Gates (DSR + Bootstrap offen wegen n=17)
+- IS: n=17, AvgR=+0.450R, WR=41%, PF=1.64
+- OOS: n=4, AvgR=+0.824R, WR=50%, PF=2.48
+- Edge: 3 grüne Kerzen mit schrumpfendem Body+Vol über EMA(50) → Sell-Stop am Low
+- `kdt_bot.py` läuft stündlich (Cron: `0 * * * *`), DRY RUN
+- Finale Validierung (DSR + Bootstrap) nach n≥30 Forward-Test-Signalen geplant
 
 ### 2026-04-24 — VAA Asset-Universe-Scan (15 Kandidaten)
 
