@@ -94,7 +94,7 @@ H006_REQUIRE_H4_ALIGN   = True   # True = zusätzlich 4H-EMA-50-Alignment erford
 # Vol≥1.0: Avg −0.208R, WR 46% (n=13). Filter hätte 8 Skip-Trades für +3.90R vermieden.
 # Fail-safe: Fehlt volume_ratio oder Candle-API fail → Trade läuft durch (kein Block).
 H014_VOLUME_FILTER_ENABLED = True
-H014_VOLUME_RATIO_MIN      = 1.0   # Mindest-Volume gegenüber 20er-Avg
+H014_VOLUME_RATIO_MIN      = 2.0   # Mindest-Volume gegenüber 20er-Avg (erhöht von 1.0 → 2026-04-24, alle Losses bei Vol<2.0x)
 
 # H-015 · Regime-basierter Risk-Modifier (Phase B.1)
 # regime_detector.py liefert risk_modifier in [0.0, 1.0]. Effektiver Risk% pro Trade

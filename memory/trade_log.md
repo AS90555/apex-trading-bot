@@ -31,3 +31,8 @@ Vol=1.039x — knapp über 1.0, weit unter normalem Threshold. **Schwaches Setup
 Vierter ETH-Verlust in Serie. Vol=1.297x — wieder unter normalem Schwellenwert. Body=0.826 — über 0.8, eigentlich Grenzfall. Box-Age 5min. Slip=$1.55 (ETH-Slippage-Problem bleibt konstant). ETH häuft Verluste an, Slippage frisst Edge komplett auf.
 
 ---
+
+### 2026-04-23 17:20 | SOL | EU | +0.10R | BE_PARTIAL_WIN
+Short-Trade, BE angewendet. Entry $85.852, Exit $86.227 — BE getriggert kurz bevor Preis weiter lief. Vol=1.497x (deutlich unter 2.5x VAA-Threshold, für ORB aber akzeptabel). Body=0.877 (kein starkes Setup). Box-Age 40min, Breakout-Distanz $0.193 bei Box-Range $0.151 = 128% — knapp über MAX_BREAKOUT_DISTANCE_RATIO-Grenze. Slip=$0.077 (SOL-typisch niedrig). Positives Ergebnis aber schwaches Setup — BE hat hier das Ergebnis gerettet.
+
+---
