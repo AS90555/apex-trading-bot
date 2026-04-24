@@ -7,7 +7,7 @@ Zentrale Einstellungen – hier alles anpassen.
 
 # DRY_RUN=True  → kein echtes Geld, nur Simulation (zum Testen)
 # DRY_RUN=False → Live-Trading mit echtem Geld
-DRY_RUN = False
+DRY_RUN = True
 
 # KAPITAL & RISIKO
 
@@ -108,6 +108,31 @@ WEEKEND_ASSET = "AVAX"
 MOMENTUM_THRESHOLD = 0.03   # 3% Mindest-Momentum
 ATR_SL_MULTIPLIER = 1.5
 ATR_TP_MULTIPLIER = 3.0     # = 2:1 R:R
+
+# ─── VAA STRATEGIE (Volume Absorption Anomaly) ───────────────────────────────
+# Validiert: Phase 4+5, 11/11 Hard-Gates bestanden (2026-04-22)
+# OOS: AvgR=+1.47R, WR=64%, PF=4.63, DSR=0.97
+
+VAA_ENABLED      = True          # False = VAA-Bot deaktiviert
+VAA_DRY_RUN      = True          # Separate DRY_RUN-Kontrolle für VAA (Start: True)
+VAA_ASSETS       = ["SOL", "AVAX", "DOGE", "ADA", "SUI", "AAVE"]
+VAA_BLACKLIST    = ["ETH", "LINK", "BTC", "XRP", "BNB", "OP", "ARB", "INJ",
+                    "APT", "TIA", "WIF", "PEPE", "JUP", "LDO"]  # Phase-4 + Asset-Scan 2026-04-24
+
+VAA_VOL_MULT     = 2.5           # Volumen > 2.5 × Vol_SMA(50)
+VAA_BODY_MULT    = 0.6           # Kerzenkörper < 0.6 × Body_SMA(50)
+VAA_ATR_EXPAND   = 1.2           # ATR(14) > 1.2 × ATR_SMA(20)  [F-06]
+VAA_TP_R         = 3.0           # Take-Profit in R
+VAA_ENTRY_WINDOW = 3             # Sell-Stop gültig für N Stunden nach Signal
+
+VAA_VOL_SMA_PERIOD  = 50
+VAA_BODY_SMA_PERIOD = 50
+VAA_EMA_PERIOD      = 20
+VAA_ATR_PERIOD      = 14
+VAA_CANDLE_LIMIT    = 120        # 1H-Candles für Indikator-Berechnung (5 Tage Warmup)
+
+# Risiko: gleiche 2% wie ORB, aber separater Daily-DD-Zähler
+VAA_MAX_RISK_PCT = 0.02
 
 # PFADE
 
