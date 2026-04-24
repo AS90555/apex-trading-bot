@@ -137,6 +137,28 @@ KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe dur
 
 ## 📅 Session-Log (neueste zuerst)
 
+### 2026-04-24 — 6 Scouts: State-Signal, Exit-Matrix, MRV, INV-Falsifikation (alle NO-GO) + VAA-Live-Entscheidung
+
+**Was wurde umgesetzt:**
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | TFR vs AVT State-Scout | `scripts/backtest/state_scout.py` | Paradigmenwechsel: EMA-Cross + Weekly VWAP auf 4H — beide signifikant negativ |
+| 2 | Exit-Matrix Scout | `scripts/backtest/exit_matrix_scout.py` | Hit&Run: TP=1R/1.5R/18-Bar Time-Stop auf TFR-Entry — alle negativ nach Fees |
+| 3 | MRV Scout | `scripts/backtest/mrv_scout.py` | BB(20,2σ)+RSI(14) Mean Reversion — SHORT +0.031R p=0.75 (Rauschen) |
+| 4 | MRV SHORT-only Variante | inline (mrv_scout.py) | Wirtschaftlich begründet: Overbought-Fade > Knife-catch — weiterhin p=0.75 |
+| 5 | INV Scout | `scripts/backtest/inv_scout.py` | Falsifikation EMA-Cross: Inversion auch negativ — Signal ist informationslos |
+| 6 | VAA-Live-Entscheidung | — | User will live schalten, aber 0/10 DRY-RUN-Signale → warten auf erstes Signal |
+
+**Kern-Erkenntnisse:**
+- Factory-Gesetz final: EMA-Cross auf 4H Krypto trägt keinerlei direktionale Information (weder Trend noch Fade)
+- WR-Ceiling gilt über alle 6 Paradigmen (15 Scouts gesamt): ~32–34% mit Chandelier, ~48–52% mit fixed 1:1 Exit — jeweils nach Fees nicht profitabel
+- MRV zeigt die beste nicht-VAA-Struktur: AvgWin=+2.0R, aber WR 1% unter Break-even
+- Einziger validierter Edge: VAA (DSR=0.97, 11/11 Gates) — wartet auf erstes DRY-RUN-Signal für Live-Freigabe
+- Pivot-Idee Forex/Commodity dokumentiert: ORB hat dort wirtschaftliche Begründung (echte Session-Opens), aber erst Backtest vor Infrastruktur-Investment
+
+**Hypothesen:** keine neuen H-IDs — alle 6 Scouts als NO-GO dokumentiert
+**Commits:** ausstehend (dieser ASE)
+
 ### 2026-04-24 — Drei Lab-Runs: PDC, MTR×2 (alle NO-GO) + Factory-Gesetz: Krypto-Breakout-WR-Ceiling
 
 **Was wurde umgesetzt:**
