@@ -137,6 +137,27 @@ KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe dur
 
 ## 📅 Session-Log (neueste zuerst)
 
+### 2026-04-24 — Drei Lab-Runs: PDC, MTR×2 (alle NO-GO) + Factory-Gesetz: Krypto-Breakout-WR-Ceiling
+
+**Was wurde umgesetzt:**
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | PDC Scout gebaut + analysiert | `scripts/backtest/pdc_scout.py` | PDH/PDL + Chandelier 1H: WR=32%, AvgR=−0.177R, p≈0 |
+| 2 | MTR Scout gebaut (LOOKBACK=120, 20 Tage, 4H) | `scripts/backtest/mtr_scout.py` | 4H-Makro: p=0.56 — erster Scout der nicht sig. negativ ist |
+| 3 | MTR LOOKBACK=60 (10 Tage) getestet | `scripts/backtest/mtr_scout.py` | LONG p=0.016 negativ, SHORT +0.033R p=0.69 |
+| 4 | Factory-Gesetz dokumentiert | `memory/knowledge_base.md` | WR-Ceiling ~32% ist timeframe-unabhängig |
+| 5 | Anti-Patterns: PDC + MTR eingetragen | `memory/anti_patterns.md` | Post-hoc Asset-Selection explizit als P-Hacking verankert |
+
+**Kern-Erkenntnisse:**
+- PDC: Makro-Level (PDH/PDL) vs. Donchian — identische WR=32%. Das Level spielt keine Rolle.
+- MTR 4H: Erster Durchbruch: p=0.56 statt p≈0. Der 4H-Timeframe neutralisiert "hochsignifikant negativ".
+- MTR 10d: Mit mehr n wird LONG wieder signifikant negativ. Das WR-Ceiling gilt auch auf 4H.
+- Factory-Gesetz endgültig: Kein weiterer reiner Breakout-Scout ohne Pre-Entry-Regimefilter.
+- Nächste Richtung: Regime-Gate (ATR-Perzentil / Momentum) als Edge-Bedingung, nicht Level-Variation.
+
+**Hypothesen:** keine neuen H-IDs (alle drei als NO-GO dokumentiert)
+**Commits:** `6edfa7f` (PDC), nächster Commit (MTR + ASE)
+
 ### 2026-04-24 — Zwei Lab-Runs: VEB, ATR-Rider (beide NO-GO) + Chandelier-Exit als Wiederverwendungskomponente
 
 **Was wurde umgesetzt:**
