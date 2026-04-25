@@ -174,6 +174,13 @@ class BitgetClient:
 
     def _request_with_retry(self, method: str, url: str, **kwargs) -> requests.Response:
         """HTTP Request mit Exponential Backoff bei 429 (max 3 Versuche)"""
+        # API-Call im Factory Guard registrieren (fire-and-forget, kein Block bei Fehler)
+        try:
+            from scripts.factory_guard import FactoryGuard
+            FactoryGuard().record_api_call()
+        except Exception:
+            pass
+
         delays = [5, 15, 30]
         for attempt, delay in enumerate(delays, 1):
             resp = requests.request(method, url, **kwargs)

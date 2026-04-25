@@ -53,3 +53,8 @@
 # ─── LOG ROTATION (täglich 04:00) ────────────────────────────
 # tail+mv statt truncate: behält die LETZTEN 1MB (neueste Daten), nicht die ältesten
 0  4  * * *   find /root/apex-trading-bot/logs -name "*.log" -size +5M -exec sh -c 'tail -c 1048576 "$1" > "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;
+
+# ─── VAA BOT (Volume Absorption Anomaly) — jede volle Stunde ─────────────────
+# SHORT-only, 1H, Assets: SOL/AVAX/DOGE/ADA/SUI/AAVE
+# VAA_DRY_RUN=True in bot_config.py — auf False setzen wenn Shadow-Mode bestanden
+0  *  * * *   venv/bin/python scripts/vaa_bot.py >> logs/vaa.log 2>&1
