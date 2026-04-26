@@ -14,6 +14,7 @@ import sys
 import json
 import time
 import hmac
+import random
 import hashlib
 import base64
 import requests
@@ -89,6 +90,11 @@ class BitgetClient:
     - Account: Balance, Positionen, Trade-History
     - DRY_RUN Mode: alle Order-Calls werden simuliert
     """
+
+    # Proaktives Throttling: min. 0.2s zwischen Requests verhindert Bursts
+    # bei Multi-Asset-Bots (VAA: 6 Assets × 2 Calls = 12 Calls/Run)
+    _MIN_INTERVAL = 0.2
+    _last_request_time: float = 0.0
 
     def __init__(self, dry_run: bool = True):
         self.dry_run = dry_run
@@ -173,24 +179,31 @@ class BitgetClient:
     # ─── HTTP Helpers ─────────────────────────────────────────────────────────
 
     def _request_with_retry(self, method: str, url: str, **kwargs) -> requests.Response:
-        """HTTP Request mit Exponential Backoff bei 429 (max 3 Versuche)"""
-        # API-Call im Factory Guard registrieren (fire-and-forget, kein Block bei Fehler)
+        """HTTP Request mit proaktivem Throttling + Exponential Backoff bei 429 (max 4 Versuche)."""
         try:
             from scripts.factory_guard import FactoryGuard
             FactoryGuard().record_api_call()
         except Exception:
             pass
 
-        delays = [5, 15, 30]
-        for attempt, delay in enumerate(delays, 1):
-            resp = requests.request(method, url, **kwargs)
-            if resp.status_code == 429:
-                print(f"⚠️  Bitget 429 – Rate Limit. Warte {delay}s (Versuch {attempt}/3)...")
-                time.sleep(delay)
-                continue
-            return resp
-        # Letzter Versuch ohne Abfangen
-        return requests.request(method, url, **kwargs)
+        # Proaktives Throttling: Mindest-Pause zwischen Requests
+        now = time.monotonic()
+        wait = BitgetClient._MIN_INTERVAL - (now - BitgetClient._last_request_time)
+        if wait > 0:
+            time.sleep(wait)
+        BitgetClient._last_request_time = time.monotonic()
+
+        base_delays = [5, 15, 30, 60]
+        last_resp = None
+        for attempt, base in enumerate(base_delays, 1):
+            last_resp = requests.request(method, url, **kwargs)
+            if last_resp.status_code != 429:
+                return last_resp
+            jitter = random.uniform(0, 5)
+            wait = base + jitter
+            print(f"⚠️  Bitget 429 – Rate Limit. Warte {wait:.1f}s (Versuch {attempt}/{len(base_delays)})...")
+            time.sleep(wait)
+        raise RuntimeError(f"Bitget API Rate Limit nach {len(base_delays)} Versuchen nicht aufgelöst (429)")
 
     def _get(self, path: str, params: Dict = None, auth: bool = False) -> any:
         """GET Request – gibt data-Feld zurück"""
