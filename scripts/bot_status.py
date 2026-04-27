@@ -41,6 +41,11 @@ BOT_LABELS = {
     "vaa":       "VAA",
 }
 
+# Bots die dauerhaft deaktiviert wurden (kein Cron mehr, archiviert)
+ARCHIVED_BOTS = {
+    "trades",   # ORB — deaktiviert 2026-04-25, kein Edge in Krypto-Perps
+}
+
 
 # ─── Auto-Detection ───────────────────────────────────────────────────────────
 
@@ -304,9 +309,15 @@ def print_status():
             if "dry_run" in t:
                 last_dry = t["dry_run"]
                 break
-        mode = "DRY" if last_dry else "LIVE" if last_dry is not None else "?"
+        if bot["key"] in ARCHIVED_BOTS:
+            mode = "ARCHIVIERT"
+        else:
+            mode = "DRY" if last_dry else "LIVE" if last_dry is not None else "?"
 
-        status_icon = "🟢" if is_on else "🔴"
+        if bot["key"] in ARCHIVED_BOTS:
+            status_icon = "⚫"
+        else:
+            status_icon = "🟢" if is_on else "🔴"
         pnl_str = (f"{'+' if pnl['total_r'] >= 0 else ''}{pnl['total_r']:.1f}R"
                    if pnl["n"] > 0 else "—")
         wr_str  = f"WR {pnl['wr']:.0f}%" if pnl["n"] > 0 else ""
@@ -346,10 +357,11 @@ def print_status():
                   f"Stop@{sig.get('stop_price', sig.get('entry','?'))}  "
                   f"SL={sig.get('sl','?')}")
 
-    # ── P&L Gesamt ───────────────────────────────────────────────────────────
+    # ── P&L Gesamt (nur aktive Bots) ─────────────────────────────────────────
     all_trades = []
     for bot in bots:
-        all_trades.extend(load_trades(bot["trades_file"]))
+        if bot["key"] not in ARCHIVED_BOTS:
+            all_trades.extend(load_trades(bot["trades_file"]))
     total = calc_pnl(all_trades)
 
     if total["n"] > 0:

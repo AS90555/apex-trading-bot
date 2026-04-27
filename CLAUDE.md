@@ -137,6 +137,28 @@ KDT geht auf LIVE wenn: 10 DRY-RUN-Signale ohne Anomalie + manuelle Freigabe dur
 
 ## 📅 Session-Log (neueste zuerst)
 
+### 2026-04-26/27 — Gold-Lab: IBB, IBB-Matrix, CROSSOVER (alle NO-GO) + universelle Gesetze bestätigt
+
+**Was wurde umgesetzt:**
+| # | Was | Datei | Warum |
+|---|-----|-------|-------|
+| 1 | IBB-Scout gebaut + analysiert (Time-Stop) | `scripts/backtest/ibb_scout.py` | IDEA-008: ORB auf COMEX Gold (GC=F 1H, yfinance) |
+| 2 | IBB Trend-Gate (SMA50) getestet | `scripts/backtest/ibb_scout.py` | Hypothese: Makro-Kontext rettet IBB → +0.009R Delta (bedeutungslos) |
+| 3 | IBB-Matrix (TP=1R/1.5R + Notbremse) | `scripts/backtest/ibb_scout.py` | Hit-&-Run-Test: TP-Hit-Rate nur 13–21% → alle 9 Varianten NO-GO |
+| 4 | CROSSOVER: KDT auf Gold | `scripts/backtest/crossover_scout.py` | Kernlogik unverändert → −0.612R, WR 15% (Krypto: +0.450R, WR 41%) |
+| 5 | CROSSOVER: VAA auf Gold | `scripts/backtest/crossover_scout.py` | Kernlogik unverändert → −0.352R, nur 10 Signale/Jahr |
+| 6 | anti_patterns.md: IBB-Gold + CROSSOVER dokumentiert | `memory/anti_patterns.md` | IDEA-008 vollständig abgeschlossen |
+| 7 | research_pipeline.md: IDEA-008 als REJECTED markiert | `memory/research_pipeline.md` | Sauber archiviert |
+
+**Kern-Erkenntnisse:**
+- **Gesetz 1 (universal):** ~32%-WR-Ceiling für ungefilterte Intraday-Breakouts gilt über Assetklassen (Krypto-Perps, Gold-Futures, COMEX)
+- **Gesetz 2 (Krypto-spezifisch):** Mean-Reversion-Edge von KDT/VAA entsteht durch Leverage-Liquidationskaskaden in Perpetual-Futures — überträgt sich nicht auf TradFi (kein Hebel-Liquidationsmechanismus)
+- IBB TP-Hit-Rate: nur 13–21% erreichen 1R nach COMEX-Open → kein institutioneller Follow-Through-Impuls messbar
+- Rate-Limit 429 post-Fix-Diagnose: Fehler bei 09:00/10:00/18:00 UTC sind POST-Fix (13:03 UTC deployed), korrekte Retry-Logik (6.7s/9.7s statt 5s), kein Handlungsbedarf
+
+**Hypothesen:** keine neuen H-IDs — alle 5 Scouts als NO-GO, IDEA-008 geschlossen
+**Commits:** `58348ea` (Gold-Lab), `8d6ddfc` (Rate-Limit-Fix)
+
 ### 2026-04-24 — 6 Scouts: State-Signal, Exit-Matrix, MRV, INV-Falsifikation (alle NO-GO) + VAA-Live-Entscheidung
 
 **Was wurde umgesetzt:**
