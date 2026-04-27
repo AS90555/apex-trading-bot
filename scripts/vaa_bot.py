@@ -326,7 +326,10 @@ def main():
             candles = client.get_candles(asset, interval="1h", limit=VAA_CANDLE_LIMIT)
         except Exception as e:
             print(f"{LOG_PREFIX} {asset}: Candle-Fehler — {e}")
+            time.sleep(0.5)
             continue
+
+        time.sleep(0.3)   # proaktives Inter-Asset-Pacing (~3 Req/s max statt Burst)
 
         if len(candles) < VAA_VOL_SMA_PERIOD + 5:
             print(f"{LOG_PREFIX} {asset}: zu wenig Candles ({len(candles)})")
